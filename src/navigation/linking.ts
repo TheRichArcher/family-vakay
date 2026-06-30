@@ -13,7 +13,7 @@ const linking: LinkingOptions<RootStackParamList> = {
           Register: 'register',
           FamilyCode: 'family-code',
           KidPin: 'join',
-          QRScanner: 'qr-scanner',
+          QRScanner: 'auth/qr-scanner',
         },
       },
       App: {
