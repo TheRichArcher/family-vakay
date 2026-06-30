@@ -26,6 +26,7 @@ jest.mock('../contexts/AuthContext', () => ({
 jest.mock('../services/trips', () => ({
   tripsService: {
     createTrip: jest.fn().mockResolvedValue({ id: 'new-trip-id' }),
+    updateTrip: jest.fn().mockResolvedValue({ id: 'new-trip-id' }),
   },
 }));
 
@@ -67,7 +68,7 @@ describe('CreateTripScreen', () => {
     expect(getByText('Trips')).toBeTruthy();
   });
 
-  it('calls the createTrip service with the full trip payload on form submission', async () => {
+  it('creates the trip before uploading optional cover images', async () => {
     const { getByPlaceholderText, getByText, queryByText } = render(<CreateTripScreen />);
 
     // Wait for async effects (participants fetch) to settle
@@ -91,10 +92,14 @@ describe('CreateTripScreen', () => {
           budget: 2500,
           ownerId: 'test-user-id',
           participants: ['u1'],
+          coverImageUrl: undefined,
+          coverImageResizedUrl: undefined,
+          coverImageThumbnailUrl: undefined,
         }),
         'test-user-id',
       );
     });
+    expect(tripsService.updateTrip).not.toHaveBeenCalled();
 
     await waitFor(() => {
       expect(mockGoBack).toHaveBeenCalled();

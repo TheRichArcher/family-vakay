@@ -2,6 +2,44 @@
 
 Date: 2026-06-29
 
+## Functional Audit Update - 2026-06-30
+
+Rich reported that production still could not save new trips and that navigation could strand users away from the main pages. A second audit reviewed the frontend route tree, the deployed Render config, Firebase client/server setup, trip creation/edit flows, backend router contracts, Firestore write paths, storage upload paths, and snake_case/camelCase field compatibility.
+
+### High-Impact Findings
+
+- Trip creation was fragile because the create screen tried to upload the cover image before creating the trip document. Any storage failure prevented the trip from being written at all.
+- Trip cover uploads were stored under `trip_cover_images/{userId}/{fileName}`, but `storage.rules` only grants trip-cover access under `trip_cover_images/{userId}/{tripId}/{imageName}`.
+- The backend direct cover upload endpoint could not receive a trip ID, so it could not write to the storage path shape expected by the rules.
+- Several backend permission checks still read only legacy snake_case fields such as `owner_id`, `family_id`, and `trip_ids`, while newer documents and API responses use `ownerId`, `familyId`, and `tripIds`.
+- `GET /api/v1/trips/family/{family_id}` read `current_user.profile.familyId`, but the real auth dependency returns the profile fields at the top level. Non-admin family trip reads could incorrectly return 403.
+- Activity owner checks used only `owner_id`, which could block a trip owner from activity operations on documents stored with `ownerId`.
+- Family code/member endpoints queried only `family_id` in several places, making invite/kid-login flows sensitive to which historical profile field shape a family used.
+- Rewards endpoints read only `family_id`, which could break rewards for profiles carrying `familyId`.
+
+### Changes Made
+
+- Create Trip now writes the trip first without cover fields, then uploads the optional cover image with the created trip ID, then updates the trip with cover paths. If cover upload fails, the trip still exists.
+- Backend direct trip-cover upload now accepts optional `trip_id`, verifies the current user is the trip owner or admin, and stores files under `trip_cover_images/{userId}/{tripId}/{fileName}`.
+- Edit Trip now passes the trip ID into backend direct cover upload, so edited covers use the same rules-compatible path.
+- Backend family-trip, activity, family, user-profile, and rewards checks now tolerate both snake_case and camelCase data shapes.
+- `TripCreate` now preserves budget and cover fields instead of silently dropping them.
+- Tests now cover the create-trip payload and backend trip persistence behavior.
+
+### Validation
+
+- Frontend typecheck: passed.
+- Frontend Jest suite: 12 passed.
+- Web build: passed.
+- Backend API tests: 18 passed.
+- Production endpoints checked: frontend returns 200, backend `/health` returns `{"status":"ok"}`.
+
+### Remaining Product Risks
+
+- Activity and scavenger-hunt image upload flows still use signed browser-to-GCS upload paths. Trip cover upload no longer depends on that path, but those other image workflows may still need the same backend-direct treatment if users hit CORS/upload failures there.
+- Jest still emits existing React `act(...)` warnings from `TripForm` async participant loading.
+- Native iOS/Android readiness remains unverified locally because native tooling was not part of this audit.
+
 ## Verdict
 
 `/Users/richarcher/Desktop/family-vakay` is now the clean working copy.

@@ -75,12 +75,12 @@ export const storageService = {
       throw err;
     }
   },
-  async uploadViaBackendDirect(localUri: string, fileName: string): Promise<{ image_path: string; download_token: string; resized_path?: string | null; thumbnail_path?: string | null }> {
+  async uploadViaBackendDirect(localUri: string, fileName: string, tripId?: string): Promise<{ image_path: string; download_token: string; resized_path?: string | null; thumbnail_path?: string | null }> {
     const response = await fetch(localUri);
     const blob = await response.blob();
     const file = new File([blob], fileName, { type: blob.type || 'application/octet-stream' });
     const { tripsService } = await import('./trips');
-    return await tripsService.uploadCoverDirect(file);
+    return await tripsService.uploadCoverDirect(file, tripId);
   },
   async uploadImageAndGetDownloadURL(
     localUri: string,

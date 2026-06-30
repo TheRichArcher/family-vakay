@@ -19,11 +19,11 @@ async def create_reward(
 ):
     if current_user.get('role') == schemas.UserRole.KID:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Kids cannot create rewards.")
-    
-    family_id = current_user.get('family_id')
+
+    family_id = current_user.get('family_id') or current_user.get('familyId')
     if not family_id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="User does not belong to a family.")
-        
+
     return await rewards_service.create_reward(reward_data, family_id)
 
 @router.get("", response_model=List[schemas.Reward])
@@ -31,10 +31,10 @@ async def get_rewards(
     current_user: dict = Depends(get_current_user),
     rewards_service: RewardsService = Depends(RewardsService)
 ):
-    family_id = current_user.get('family_id')
+    family_id = current_user.get('family_id') or current_user.get('familyId')
     if not family_id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="User does not belong to a family.")
-    
+
     return await rewards_service.get_rewards_for_family(family_id)
 
 @router.post("/{reward_id}/redeem", response_model=schemas.Reward)
@@ -68,9 +68,10 @@ async def delete_reward(
     if not reward:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Reward not found.")
 
-    if reward.familyId != current_user.get('family_id'):
+    family_id = current_user.get('family_id') or current_user.get('familyId')
+    if reward.familyId != family_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to delete this reward.")
-        
+
     await rewards_service.delete_reward(reward_id)
     return None
 
@@ -87,8 +88,9 @@ async def update_reward(
     reward = await rewards_service.get_reward_by_id(reward_id)
     if not reward:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Reward not found.")
-        
-    if reward.familyId != current_user.get('family_id'):
+
+    family_id = current_user.get('family_id') or current_user.get('familyId')
+    if reward.familyId != family_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to update this reward.")
 
-    return await rewards_service.update_reward(reward_id, reward_update) 
+    return await rewards_service.update_reward(reward_id, reward_update)

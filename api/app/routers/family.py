@@ -33,11 +33,15 @@ async def family_exists(family_id: str) -> bool:
     """
     db = get_async_firestore_client()
     users_ref = db.collection('users')
-    query = users_ref.where(filter=And(filters=[FieldFilter('family_id', '==', family_id), FieldFilter('role', '==', 'admin')])).limit(1)
-    docs = query.stream()
-    async for doc in docs:
-        if doc.exists:
-            return True
+    queries = [
+        users_ref.where(filter=And(filters=[FieldFilter('family_id', '==', family_id), FieldFilter('role', '==', 'admin')])).limit(1),
+        users_ref.where(filter=And(filters=[FieldFilter('familyId', '==', family_id), FieldFilter('role', '==', 'admin')])).limit(1),
+    ]
+    for query in queries:
+        docs = query.stream()
+        async for doc in docs:
+            if doc.exists:
+                return True
     return False
 
 @router.get("/{family_id}/public_members", response_model=list[schemas.PublicUserProfile])
@@ -48,17 +52,21 @@ async def get_public_family_members(family_id: str):
     """
     db = get_async_firestore_client()
     users_ref = db.collection('users')
-    query = users_ref.where('family_id', '==', family_id)
-    docs = query.stream()
-    
-    members = []
-    async for doc in docs:
-        member_data = doc.to_dict()
-        members.append({
-            "uid": doc.id,
-            "name": member_data.get("name"),
-            "role": member_data.get("role"),
-        })
+    queries = [
+        users_ref.where(filter=FieldFilter('family_id', '==', family_id)),
+        users_ref.where(filter=FieldFilter('familyId', '==', family_id)),
+    ]
+
+    members_by_id = {}
+    for query in queries:
+        async for doc in query.stream():
+            member_data = doc.to_dict()
+            members_by_id[doc.id] = {
+                "uid": doc.id,
+                "name": member_data.get("name"),
+                "role": member_data.get("role"),
+            }
+    members = list(members_by_id.values())
     return members
 
 @router.post("/validate", status_code=status.HTTP_200_OK)
@@ -141,11 +149,11 @@ async def get_family_members(family_id: str, current_user: dict = Depends(get_cu
     user_family_id = current_user.get('family_id') or current_user.get('familyId')
     if user_family_id != family_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You are not authorized to view this family's members.")
-    
+
     user_service = UserService()
     members = await user_service.get_family_members_by_id(family_id)
-            
+
     if not members:
         logger.warning(f"No family members found for family_id: {family_id} using either 'family_id' or 'familyId' fields.")
 
-    return members 
+    return members

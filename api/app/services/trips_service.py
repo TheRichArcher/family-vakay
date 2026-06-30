@@ -14,9 +14,9 @@ def _get_trip_status(start_date: date, end_date: date, current_status: schemas.T
     """Helper function to determine trip status based on dates."""
     if current_status == schemas.TripStatus.CANCELLED:
         return schemas.TripStatus.CANCELLED
-        
+
     today = date.today()
-    
+
     if end_date < today:
         return schemas.TripStatus.COMPLETED
     elif start_date <= today <= end_date:
@@ -34,9 +34,9 @@ class TripsService:
         trip_doc = await self.trips_collection.document(trip_id).get()
         if not trip_doc.exists:
             raise ValueError("Trip not found")
-        
+
         trip_data = trip_doc.to_dict()
-        
+
         # --- Start data migration for robustness ---
         if 'start_date' in trip_data and 'startDate' not in trip_data:
             trip_data['startDate'] = trip_data.pop('start_date')
@@ -51,10 +51,10 @@ class TripsService:
         # Check for both camelCase and snake_case owner fields for backward compatibility
         is_owner = user_id == trip_data.get('ownerId')
         is_participant = user_id in trip_data.get('participants', [])
-        
+
         if not is_owner and not is_participant:
             raise PermissionError("User is not authorized to access this trip")
-            
+
         trip_data['id'] = trip_id
         try:
             # Validate the data against the Pydantic model
@@ -67,16 +67,16 @@ class TripsService:
 
     async def get_trips_for_user(self, current_user: dict) -> List[schemas.Trip]:
         user_id = current_user['uid']
-        
+
         # We need to query for trips where the user is a participant OR the owner.
         # To support both old and new data, we check for both ownerId and owner_id.
-        
+
         # Query for trips where user is a participant
         participant_query = self.trips_collection.where(filter=FieldFilter('participants', 'array_contains', user_id))
-        
+
         # Query for trips where user is the owner (new format)
         owner_query = self.trips_collection.where(filter=FieldFilter('owner_id', '==', user_id))
-        
+
         # Query for trips where user is the owner (legacy format)
         legacy_owner_query = self.trips_collection.where(filter=FieldFilter('ownerId', '==', user_id))
 
@@ -88,7 +88,7 @@ class TripsService:
             async for doc in stream:
                 if doc.id in processed_trip_ids:
                     continue
-                
+
                 trip_data = doc.to_dict()
                 trip_data['id'] = doc.id
 
@@ -135,7 +135,7 @@ class TripsService:
     async def get_all_trips(self) -> List[schemas.Trip]:
         """Fetches all trips from the database, intended for admin use."""
         logging.info("Fetching all trips for admin.")
-        
+
         trips_stream = self.trips_collection.stream()
         trips = []
         processed_trip_ids = set()
@@ -143,7 +143,7 @@ class TripsService:
         async for doc in trips_stream:
             if doc.id in processed_trip_ids:
                 continue
-            
+
             trip_data = doc.to_dict()
             trip_data['id'] = doc.id
 
@@ -157,7 +157,7 @@ class TripsService:
             if 'cover_image_url' in trip_data and 'coverImageUrl' not in trip_data:
                 trip_data['coverImageUrl'] = trip_data.pop('cover_image_url')
             # --- End data migration ---
-            
+
             try:
                 # Use .model_validate to handle potential validation errors gracefully
                 validated_trip = schemas.Trip.model_validate(trip_data)
@@ -167,7 +167,7 @@ class TripsService:
                 logging.error(f"Skipping trip with ID {doc.id} due to validation error: {e}")
                 # Optionally, you could collect these IDs for a maintenance report
                 continue
-        
+
         logging.info(f"Successfully fetched {len(trips)} trips for admin.")
         return trips
 
@@ -181,7 +181,7 @@ class TripsService:
             try:
                 # The raw data from Firestore might not have a status, default to upcoming
                 current_status_str = trip_data.get('status', 'upcoming')
-                
+
                 # Convert string dates from Firestore to Python date objects
                 start_date_obj = datetime.fromisoformat(trip_data['startDate'].rstrip('Z')).date() if isinstance(trip_data.get('startDate'), str) else trip_data.get('startDate')
                 end_date_obj = datetime.fromisoformat(trip_data['endDate'].rstrip('Z')).date() if isinstance(trip_data.get('endDate'), str) else trip_data.get('endDate')
@@ -201,34 +201,40 @@ class TripsService:
         return trips
 
     async def get_trips_for_family(self, family_id: str) -> List[schemas.Trip]:
-        query = self.trips_collection.where(filter=FieldFilter('familyId', '==', family_id))
+        queries = [
+            self.trips_collection.where(filter=FieldFilter('familyId', '==', family_id)),
+            self.trips_collection.where(filter=FieldFilter('family_id', '==', family_id)),
+        ]
         trips = []
         processed_trip_ids = set()
 
-        async for doc in query.stream():
-            if doc.id in processed_trip_ids:
-                continue
-            
-            trip_data = doc.to_dict()
-            trip_data['id'] = doc.id
+        async def process_stream(stream):
+            async for doc in stream:
+                if doc.id in processed_trip_ids:
+                    continue
 
-            if 'start_date' in trip_data and 'startDate' not in trip_data:
-                trip_data['startDate'] = trip_data.pop('start_date')
-            if 'end_date' in trip_data and 'endDate' not in trip_data:
-                trip_data['endDate'] = trip_data.pop('end_date')
-            if 'owner_id' in trip_data and 'ownerId' not in trip_data:
-                trip_data['ownerId'] = trip_data.pop('owner_id')
-            if 'cover_image_url' in trip_data and 'coverImageUrl' not in trip_data:
-                trip_data['coverImageUrl'] = trip_data.pop('cover_image_url')
-            
-            try:
-                validated_trip = schemas.Trip.model_validate(trip_data)
-                trips.append(validated_trip)
-                processed_trip_ids.add(doc.id)
-            except ValidationError as e:
-                logging.error(f"Skipping trip with ID {doc.id} due to validation error: {e}")
-                continue
-        
+                trip_data = doc.to_dict()
+                trip_data['id'] = doc.id
+
+                if 'start_date' in trip_data and 'startDate' not in trip_data:
+                    trip_data['startDate'] = trip_data.pop('start_date')
+                if 'end_date' in trip_data and 'endDate' not in trip_data:
+                    trip_data['endDate'] = trip_data.pop('end_date')
+                if 'owner_id' in trip_data and 'ownerId' not in trip_data:
+                    trip_data['ownerId'] = trip_data.pop('owner_id')
+                if 'cover_image_url' in trip_data and 'coverImageUrl' not in trip_data:
+                    trip_data['coverImageUrl'] = trip_data.pop('cover_image_url')
+
+                try:
+                    validated_trip = schemas.Trip.model_validate(trip_data)
+                    trips.append(validated_trip)
+                    processed_trip_ids.add(doc.id)
+                except ValidationError as e:
+                    logging.error(f"Skipping trip with ID {doc.id} due to validation error: {e}")
+                    continue
+
+        await asyncio.gather(*(process_stream(query.stream()) for query in queries))
+
         return trips
 
     async def get_trip_by_code(self, code: str) -> schemas.Trip:
@@ -263,7 +269,7 @@ class TripsService:
 
         user_service = UserService()
         user_id = current_user['uid']
-        
+
         user_profile = await user_service.get_user_profile(user_id)
         if not user_profile:
             # This should not happen for a logged-in user with a valid token.
@@ -277,7 +283,7 @@ class TripsService:
         # Ensure the owner is in the participants list from the start
         participants = set(trip_data.participants)
         participants.add(user_id)
-        
+
         new_trip_data = {
             **trip_data.model_dump(by_alias=True),
             'ownerId': user_id,
@@ -291,7 +297,7 @@ class TripsService:
             if isinstance(trip_data.status, schemas.TripStatus)
             else trip_data.status or schemas.TripStatus.UPCOMING.value
         )
-        
+
         # Normalize dates to ISO yyyy-mm-dd strings for Firestore compatibility
         start_value = new_trip_data.get('startDate')
         end_value = new_trip_data.get('endDate')
@@ -303,7 +309,7 @@ class TripsService:
             new_trip_data['endDate'] = end_value.strftime('%Y-%m-%d')
         elif isinstance(end_value, datetime):
             new_trip_data['endDate'] = end_value.date().strftime('%Y-%m-%d')
-        
+
         # Firestore add() returns (update_time, DocumentReference). We need the reference.
         _update_time, trip_ref = await self.trips_collection.add(new_trip_data)
         logging.info(
@@ -315,7 +321,7 @@ class TripsService:
                 "participant_count": len(participants),
             },
         )
-        
+
         # After creating the trip, update the participants' user profiles
         for participant_id in participants:
             try:
@@ -373,14 +379,14 @@ class TripsService:
                 await user_service.update_user_profile(user_id, {
                     'trip_ids': firestore.ArrayUnion([trip_id])
                 })
-            
+
             for user_id in removed_users:
                 await user_service.update_user_profile(user_id, {
                     'trip_ids': firestore.ArrayRemove([trip_id])
                 })
-        
+
         await self.trips_collection.document(trip_id).update(update_data)
-        
+
         updated_trip_doc = await self.trips_collection.document(trip_id).get()
         updated_trip_data = updated_trip_doc.to_dict()
         updated_trip_data['id'] = updated_trip_doc.id
@@ -396,10 +402,10 @@ class TripsService:
 
         if current_user.get("role") != "admin":
             raise PermissionError("User not authorized to delete this trip")
-            
+
         trip_data = trip_doc.to_dict()
         user_service = UserService()
-        
+
         # Remove the trip_id from all participants' profiles
         participant_ids = trip_data.get('participants', [])
         for participant_id in participant_ids:
@@ -408,7 +414,7 @@ class TripsService:
             })
 
         # Finally, delete the trip itself
-        await trip_ref.delete() 
+        await trip_ref.delete()
 
     async def update_trip_participants(self, trip_id: str, participant_uids: list[str], current_user: dict) -> schemas.Trip:
         if current_user.get("role") != "admin":

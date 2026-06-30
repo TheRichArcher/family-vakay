@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, UploadFile, File, Form
 import uuid
 from typing import List
 from pydantic import BaseModel
@@ -118,6 +118,7 @@ async def finalize_cover_upload(req: FinalizeCoverRequest, current_user: dict = 
 @router.post("/upload-cover-direct", status_code=200)
 async def upload_cover_direct(
     file: UploadFile = File(...),
+    trip_id: str | None = Form(default=None),
     current_user: dict = Depends(get_current_user),
 ):
     """Accepts a multipart/form-data image and uploads it to GCS server-side.
@@ -141,7 +142,19 @@ async def upload_cover_direct(
             return "bin"
 
         safe_file_name = f"{uuid.uuid4()}.{_ext_for_content_type(content_type)}"
-        file_path = f"trip_cover_images/{user_id}/{safe_file_name}"
+        if trip_id:
+            trips_service = TripsService()
+            try:
+                trip = await trips_service.get_trip_by_id(trip_id, current_user)
+            except (ValueError, PermissionError):
+                raise HTTPException(status_code=403, detail="You are not authorized to upload a cover for this trip.")
+            is_owner = getattr(trip, "owner_id", None) == user_id
+            is_admin = current_user.get("role") == "admin"
+            if not is_owner and not is_admin:
+                raise HTTPException(status_code=403, detail="Only the trip owner or an admin can update the cover image.")
+            file_path = f"trip_cover_images/{user_id}/{trip_id}/{safe_file_name}"
+        else:
+            file_path = f"trip_cover_images/{user_id}/{safe_file_name}"
 
         # Upload to GCS
         if not storage_service.bucket:
@@ -180,6 +193,8 @@ async def upload_cover_direct(
         except Exception as e:
             logger.info(f"Cover derivative generation skipped/failed in direct upload: {e}")
         return {"image_path": file_path, "download_token": token, "resized_path": resized_path, "thumbnail_path": thumb_path}
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
@@ -222,7 +237,7 @@ async def get_trips_with_budget_summary(current_user: dict = Depends(get_current
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Could not validate credentials.")
 
     trips = await trips_service.get_trips_for_participant(user_id)
-    
+
     trips_with_budgets = []
     for trip_dict in trips:
         # The service returns dicts, so we validate and convert to a Trip model
@@ -235,16 +250,21 @@ async def get_trips_with_budget_summary(current_user: dict = Depends(get_current
             )
             trip_with_budget = schemas.TripWithBudget(**trip.model_dump(), total_spent=total_spent)
             trips_with_budgets.append(trip_with_budget)
-            
+
     return trips_with_budgets
 
 @router.get("/family/{family_id}", response_model=List[schemas.Trip])
 async def get_family_trips(family_id: str, current_user: dict = Depends(get_current_user)):
     # Allow admin to fetch any family's trips, or a user to fetch their own.
-    user_profile = current_user.get("profile", {})
-    user_family_id = user_profile.get("familyId")
+    profile = current_user.get("profile") or {}
+    user_family_id = (
+        current_user.get("familyId")
+        or current_user.get("family_id")
+        or profile.get("familyId")
+        or profile.get("family_id")
+    )
     is_admin = current_user.get("role") == "admin"
-    
+
     if not is_admin and user_family_id != family_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You can only access trips within your own family.")
 
@@ -344,7 +364,7 @@ async def generate_upload_url(
     safe_file_name = re.sub(r'[^a-zA-Z0-9_.-]', '_', req.file_name)
     storage_service = get_storage_service()
     file_path = f"scavenger_hunts/{trip_id}/{activity_id}/{user_id}/{safe_file_name}"
-    max_upload_size = 10 * 1024 * 1024 
+    max_upload_size = 10 * 1024 * 1024
 
     try:
         signed_url = storage_service.generate_signed_upload_url(
@@ -376,10 +396,10 @@ async def submit_challenge_for_scoring(
     challenges = activity.get('challenges', [])
     if not (0 <= challenge_index < len(challenges)):
         raise HTTPException(status_code=404, detail="Challenge not found.")
-    
+
     # --- Start Read-Modify-Write to prevent array corruption ---
     challenge_to_update = challenges[challenge_index]
-    
+
     # Ensure 'completions' field exists and is a dictionary
     if 'completions' not in challenge_to_update or not isinstance(challenge_to_update.get('completions'), dict):
         challenge_to_update['completions'] = {}
@@ -398,7 +418,7 @@ async def submit_challenge_for_scoring(
     # --- End Read-Modify-Write ---
 
     challenge = challenges[challenge_index]
-    
+
     background_tasks.add_task(
         score_challenge_submission_background,
         activity_id=activity_id,
@@ -436,8 +456,8 @@ async def score_challenge_submission_background(activity_id: str, challenge_inde
                         challenge['completions'][user_id]['status'] = 'error'
                         challenge['completions'][user_id]['comment'] = "A system error occurred while judging. Please try again or contact support."
                         challenge['completions'][user_id]['pointsAwarded'] = 0
-                        
+
                         await activities_service.update_activity_internal(activity_id, {"challenges": challenges})
             # --- End Read-Modify-Write ---
         except Exception as update_e:
-            logger.error(f"FATAL: Failed to update challenge status to 'error' after scoring failure: {update_e}", exc_info=True) 
+            logger.error(f"FATAL: Failed to update challenge status to 'error' after scoring failure: {update_e}", exc_info=True)

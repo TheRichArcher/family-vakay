@@ -24,7 +24,7 @@ async def get_users_batch(user_id_list: schemas.UserIDList, current_user: dict =
     """
     user_service = UserService()
     profiles = await user_service.get_users_by_ids(user_id_list.user_ids)
-    
+
     # We must ensure that the output conforms to the UserProfile schema.
     # Pydantic will validate this automatically when we return the list.
     return [schemas.UserProfile(**p) for p in profiles]
@@ -39,9 +39,9 @@ async def create_kid_profile(kid_data: schemas.KidProfileCreate, current_user: d
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Admin user does not have a family ID.")
 
     db = get_async_firestore_client()
-    
+
     pin_hash = get_password_hash(kid_data.pin)
-    
+
     users_collection = db.collection('users')
     new_kid_ref = users_collection.document()
     new_kid_uid = new_kid_ref.id
@@ -69,7 +69,7 @@ async def create_kid_profile(kid_data: schemas.KidProfileCreate, current_user: d
     }
 
     await new_kid_ref.set(new_kid_profile)
-    
+
     created_doc = await new_kid_ref.get()
     created_profile = created_doc.to_dict()
     return schemas.UserProfile(**created_profile)
@@ -84,9 +84,10 @@ async def update_kid_pin(user_id: str, pin_data: schemas.KidPinUpdate, current_u
 
     if not user_to_update:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-    
+
     user_family_id = current_user.get('family_id') or current_user.get('familyId')
-    if user_family_id != user_to_update.get('family_id'):
+    target_family_id = user_to_update.get('family_id') or user_to_update.get('familyId')
+    if user_family_id != target_family_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admins can only update PINs for their own family members.")
 
     pin_hash = get_password_hash(pin_data.pin)
@@ -96,10 +97,10 @@ async def update_kid_pin(user_id: str, pin_data: schemas.KidPinUpdate, current_u
 async def create_or_update_user_profile(user_id: str, profile: schemas.UserProfileUpdate, token_data: dict = Depends(get_current_user_token)):
     if user_id != token_data.get('uid'):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You can only update your own profile.")
-        
+
     db = get_async_firestore_client()
     user_ref = db.collection('users').document(user_id)
-    
+
     profile_data = profile.model_dump(exclude_unset=True, by_alias=False)
 
     existing_doc = await user_ref.get()
@@ -116,21 +117,21 @@ async def create_or_update_user_profile(user_id: str, profile: schemas.UserProfi
             if 'role' not in profile_data:
                 # Default for safety, but client should be updated to send this.
                 profile_data['role'] = schemas.UserRole.MEMBER
-    
+
     if 'role' in profile_data and profile_data['role'] != schemas.UserRole.KID:
         profile_data['is_kid'] = False
-    
+
     profile_data['updated_at'] = firestore.SERVER_TIMESTAMP
-    
+
     if is_new_user:
         profile_data['created_at'] = firestore.SERVER_TIMESTAMP
 
     await user_ref.set(profile_data, merge=True)
-    
+
     updated_doc = await user_ref.get()
     updated_profile = updated_doc.to_dict()
     updated_profile['uid'] = updated_doc.id
-    
+
     return schemas.UserProfile(**updated_profile)
 
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -149,7 +150,7 @@ async def delete_user(user_id: str, current_user: dict = Depends(get_current_use
 
     if user_family_id != profile_to_delete_family_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to delete this user.")
-    
+
     if current_user.get('uid') == user_id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="You cannot delete your own profile.")
 
@@ -169,7 +170,7 @@ async def get_admin_stats(current_user: dict = Depends(get_current_user)):
     family_id = current_user.get('family_id') or current_user.get('familyId')
     if not family_id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Admin user does not have a family ID.")
-    
+
     user_service = UserService()
     stats = await user_service.get_admin_stats(family_id)
     return schemas.AdminStats(**stats)
@@ -186,7 +187,7 @@ async def get_user_by_email(email: str, current_user: dict = Depends(get_current
 @router.get("/{user_id}", response_model=schemas.UserProfile)
 async def get_user_profile(user_id: str, token: dict = Depends(get_current_user_token)):
     user_service = UserService()
-    
+
     # Always allow a user to fetch their own profile.
     if user_id == token.get('uid'):
         user_profile = await user_service.get_user_profile(user_id)
@@ -198,7 +199,7 @@ async def get_user_profile(user_id: str, token: dict = Depends(get_current_user_
     # We need both the current user's profile and the target user's profile.
     current_user_profile_task = user_service.get_user_profile(token.get('uid'))
     target_user_profile_task = user_service.get_user_profile(user_id)
-    
+
     current_user_profile, target_user_profile = await asyncio.gather(
         current_user_profile_task,
         target_user_profile_task
@@ -214,13 +215,14 @@ async def get_user_profile(user_id: str, token: dict = Depends(get_current_user_
         return target_user_profile
 
     # Authorization Rule 1: Users in the same family can see each other's profiles.
-    if current_user_profile.get('family_id') and \
-       current_user_profile.get('family_id') == target_user_profile.get('family_id'):
+    current_family_id = current_user_profile.get('family_id') or current_user_profile.get('familyId')
+    target_family_id = target_user_profile.get('family_id') or target_user_profile.get('familyId')
+    if current_family_id and current_family_id == target_family_id:
         return target_user_profile
 
     # Authorization Rule 2: Users who share a trip can see each other's profiles.
-    current_user_trips = set(current_user_profile.get('trip_ids', []))
-    target_user_trips = set(target_user_profile.get('trip_ids', []))
+    current_user_trips = set(current_user_profile.get('trip_ids') or current_user_profile.get('tripIds') or [])
+    target_user_trips = set(target_user_profile.get('trip_ids') or target_user_profile.get('tripIds') or [])
 
     if current_user_trips.intersection(target_user_trips):
         return target_user_profile

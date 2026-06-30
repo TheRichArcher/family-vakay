@@ -37,27 +37,32 @@ export default function CreateTripScreen() {
 
     setIsSubmitting(true);
     try {
-      let coverImageUrlToSave: string | undefined | null = tripFormData.coverImageUrl;
-      let coverImageResizedToSave: string | undefined;
-      let coverImageThumbToSave: string | undefined;
-
-      if (newCoverImageUri) {
-        const imageName = generateUniqueFileName(newCoverImageUri);
-        const finalize = await storageService.uploadViaBackendDirect(newCoverImageUri, imageName);
-        // Store the storage path; rendering resolves via getDownloadURL at runtime
-        coverImageUrlToSave = finalize.image_path;
-        coverImageResizedToSave = finalize.resized_path || undefined;
-        coverImageThumbToSave = finalize.thumbnail_path || undefined;
-      }
-
-      const finalTripData: TripData = {
+      const initialTripData: TripData = {
         ...tripFormData,
-        coverImageUrl: coverImageUrlToSave,
-        coverImageResizedUrl: coverImageResizedToSave,
-        coverImageThumbnailUrl: coverImageThumbToSave,
+        coverImageUrl: undefined,
+        coverImageResizedUrl: undefined,
+        coverImageThumbnailUrl: undefined,
       };
 
-      await tripsService.createTrip(finalTripData, user.uid);
+      const createdTrip = await tripsService.createTrip(initialTripData, user.uid);
+
+      if (newCoverImageUri) {
+        try {
+          const imageName = generateUniqueFileName(newCoverImageUri);
+          const finalize = await storageService.uploadViaBackendDirect(newCoverImageUri, imageName, createdTrip.id);
+          await tripsService.updateTrip(createdTrip.id, {
+            coverImageUrl: finalize.image_path,
+            coverImageResizedUrl: finalize.resized_path || undefined,
+            coverImageThumbnailUrl: finalize.thumbnail_path || undefined,
+          });
+        } catch (coverError) {
+          console.error('Trip was created, but cover upload failed:', coverError);
+          Alert.alert(
+            'Trip Created',
+            'Your trip was saved, but the cover image could not be uploaded. You can edit the trip and try the image again.'
+          );
+        }
+      }
       returnToTrips();
     } catch (error) {
       console.error('Failed to create trip:', error);

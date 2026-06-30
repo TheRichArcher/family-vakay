@@ -40,7 +40,7 @@ export default function EditTripScreen() {
         const contentType = fileExt === 'png' ? 'image/png' : 'image/jpeg';
         try {
           // Try backend direct upload first to bypass any browser CORS/network issues
-          const direct = await storageService.uploadViaBackendDirect(newCoverImageUri, imageName);
+          const direct = await storageService.uploadViaBackendDirect(newCoverImageUri, imageName, trip.id);
           // Store the storage path; viewer resolves via getDownloadURL
           coverImageUrlToSave = direct.image_path;
           if (direct.thumbnail_path || direct.resized_path) {
@@ -74,7 +74,7 @@ export default function EditTripScreen() {
         // Handle image removal
         coverImageUrlToSave = null;
       }
-      
+
       const finalTripData: Partial<TripData> = {
         name: tripFormData.name,
         description: tripFormData.description,
@@ -86,9 +86,9 @@ export default function EditTripScreen() {
         participants: tripFormData.participants,
         coverImageUrl: coverImageUrlToSave,
       };
-      
+
       await tripsService.updateTrip(trip.id, finalTripData);
-      
+
       navigation.goBack();
     } catch (error: any) {
       console.error('DEBUG: EditTripScreen - Error updating trip:', error);
@@ -105,7 +105,7 @@ export default function EditTripScreen() {
       </View>
     );
   }
-  
+
   if (!trip) {
     return (
         <View style={styles.loadingContainer}>
@@ -137,4 +137,4 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: colors.background,
   },
-}); 
+});

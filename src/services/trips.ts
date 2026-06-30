@@ -41,9 +41,12 @@ export const tripsService = {
     const res = await apiClient.post('/api/v1/trips/finalize-cover', { image_path: imagePath });
     return res.data;
   },
-  async uploadCoverDirect(file: File): Promise<{ image_path: string; download_token: string; resized_path?: string | null; thumbnail_path?: string | null }> {
+  async uploadCoverDirect(file: File, tripId?: string): Promise<{ image_path: string; download_token: string; resized_path?: string | null; thumbnail_path?: string | null }> {
     const form = new FormData();
     form.append('file', file);
+    if (tripId) {
+      form.append('trip_id', tripId);
+    }
     const res = await apiClient.post('/api/v1/trips/upload-cover-direct', form, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });

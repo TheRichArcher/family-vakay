@@ -23,12 +23,13 @@ class ActivitiesService:
         if not trip_doc.exists:
             return False
         trip_data = trip_doc.to_dict()
-        return user_id == trip_data.get('owner_id') or user_id in trip_data.get('participants', [])
+        owner_id = trip_data.get('ownerId') or trip_data.get('owner_id')
+        return user_id == owner_id or user_id in trip_data.get('participants', [])
 
     async def get_activities_for_trip(self, trip_id: str, current_user: dict) -> List[dict]:
         if not await self._user_can_access_trip(current_user['uid'], trip_id):
             raise PermissionError("User is not authorized to view activities for this trip.")
-        
+
         return await self.get_activities_for_trip_internal(trip_id, current_user['uid'])
 
     async def get_activities_for_trip_internal(self, trip_id: str, user_id_for_hidden_check: str | None = None) -> List[dict]:
@@ -37,12 +38,12 @@ class ActivitiesService:
         async for activity in activities_stream:
             try:
                 activity_data = activity.to_dict()
-                
+
                 if user_id_for_hidden_check and user_id_for_hidden_check in activity_data.get('hiddenFrom', []):
                     continue
 
                 activity_data['id'] = activity.id
-                
+
                 # --- START DEFENSIVE DATA CLEANUP ---
                 # For backward compatibility, ensure that fields that are now non-optional
                 # have a default value if they are missing from older documents.
@@ -84,7 +85,7 @@ class ActivitiesService:
                 activities.append(activity_data)
             except Exception as e:
                 logger.error(f"Failed to process activity {activity.id} for trip {trip_id}: {e}", exc_info=True)
-                
+
         return activities
 
     async def get_all_activities(self) -> List[dict]:
@@ -93,12 +94,12 @@ class ActivitiesService:
         async for activity in activities_stream:
             activity_data = activity.to_dict()
             activity_data['id'] = activity.id
-            
+
             # Sanitize NaN float values before they cause JSON serialization errors
             for field in ['budget', 'cost', 'additionalExpenses']:
                 if field in activity_data and isinstance(activity_data[field], float) and math.isnan(activity_data[field]):
                     activity_data[field] = None
-            
+
             activities.append(activity_data)
         return activities
 
@@ -107,7 +108,7 @@ class ActivitiesService:
         if not activity_doc.exists:
             return None
         activity_data = activity_doc.to_dict()
-        
+
         # Convert challenges from dict to sorted list if necessary
         if isinstance(activity_data.get('challenges'), dict):
             challenges_dict = activity_data['challenges']
@@ -120,7 +121,7 @@ class ActivitiesService:
 
         if not await self._user_can_access_trip(current_user['uid'], activity_data.get('tripId')):
             raise PermissionError("User is not authorized to access this activity.")
-            
+
         activity_data['id'] = activity_doc.id
         return activity_data
 
@@ -135,7 +136,7 @@ class ActivitiesService:
         logger.info(f"Creating activity with data: {new_activity_data}")
 
         _update_time, doc_ref = await self.activities_collection.add(new_activity_data)
-        
+
         created_activity_doc = await doc_ref.get()
         created_activity = created_activity_doc.to_dict()
         created_activity['id'] = doc_ref.id
@@ -157,11 +158,13 @@ class ActivitiesService:
         if trip_id:
             trip_doc = await self.trips_collection.document(trip_id).get()
             if trip_doc.exists:
-                user_is_owner = trip_doc.to_dict().get('owner_id') == current_user.get('uid')
+                trip_data = trip_doc.to_dict()
+                owner_id = trip_data.get('ownerId') or trip_data.get('owner_id')
+                user_is_owner = owner_id == current_user.get('uid')
 
         if not (user_is_admin or user_is_owner):
             raise PermissionError("User is not authorized to update this activity.")
-        
+
         update_data = activity_update.model_dump(by_alias=True, exclude_unset=True)
         update_data['updated_at'] = datetime.utcnow()
 
@@ -192,9 +195,9 @@ class ActivitiesService:
             except ValueError:
                 # Handle case where the date string is not in the expected format
                 raise HTTPException(status_code=422, detail="Invalid date format. Please use YYYY-MM-DD.")
-        
+
         await self.activities_collection.document(activity_id).update(update_data)
-        
+
         updated_doc = await self.activities_collection.document(activity_id).get()
         updated_data = updated_doc.to_dict()
         updated_data['id'] = updated_doc.id
@@ -260,7 +263,7 @@ class ActivitiesService:
 
         update_data = {f'votes.{user_id}': vote}
         await self.activities_collection.document(activity_id).update(update_data)
-        
+
         updated_doc = await self.activities_collection.document(activity_id).get()
         return updated_doc.to_dict()
 
@@ -275,11 +278,11 @@ class ActivitiesService:
             "feedback": rating.feedback,
             "ratedAt": datetime.utcnow()
         }
-        
+
         update_data = {f'ratings.{user_id}': rating_data}
-        
+
         await self.activities_collection.document(activity_id).update(update_data)
-        
+
         updated_doc = await self.activities_collection.document(activity_id).get()
         updated_activity = updated_doc.to_dict()
         updated_activity['id'] = updated_doc.id

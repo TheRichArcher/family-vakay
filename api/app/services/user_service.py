@@ -21,9 +21,19 @@ class UserService:
         if user_doc.exists:
             user_data = user_doc.to_dict()
             user_data['uid'] = user_doc.id
+            if 'familyId' not in user_data and user_data.get('family_id'):
+                user_data['familyId'] = user_data.get('family_id')
+            if 'family_id' not in user_data and user_data.get('familyId'):
+                user_data['family_id'] = user_data.get('familyId')
+            if 'tripIds' not in user_data and user_data.get('trip_ids') is not None:
+                user_data['tripIds'] = user_data.get('trip_ids')
+            if 'trip_ids' not in user_data and user_data.get('tripIds') is not None:
+                user_data['trip_ids'] = user_data.get('tripIds')
             # Ensure 'is_kid' has a default value of False if not present.
             if 'is_kid' not in user_data:
                 user_data['is_kid'] = False
+            if 'isKid' not in user_data:
+                user_data['isKid'] = user_data['is_kid']
             return user_data
         return None
 
@@ -53,6 +63,14 @@ class UserService:
             if doc.exists:
                 user_data = doc.to_dict()
                 user_data['uid'] = doc.id
+                if 'familyId' not in user_data and user_data.get('family_id'):
+                    user_data['familyId'] = user_data.get('family_id')
+                if 'family_id' not in user_data and user_data.get('familyId'):
+                    user_data['family_id'] = user_data.get('familyId')
+                if 'tripIds' not in user_data and user_data.get('trip_ids') is not None:
+                    user_data['tripIds'] = user_data.get('trip_ids')
+                if 'trip_ids' not in user_data and user_data.get('tripIds') is not None:
+                    user_data['trip_ids'] = user_data.get('tripIds')
                 profiles.append(user_data)
 
         return profiles
@@ -65,7 +83,7 @@ class UserService:
         # Using characters that are not easily confused (e.g., no 0/O, 1/I)
         chars = string.ascii_uppercase + string.digits
         chars = chars.replace('0', '').replace('O', '').replace('1', '').replace('I', '')
-        
+
         while True:
             code = ''.join(random.choice(chars) for _ in range(6))
             # Check for uniqueness. A family is defined by its share code.
@@ -85,7 +103,8 @@ class UserService:
         If the admin doesn't have a code, it creates one for them.
         """
         user_profile = await self.get_user_profile(user_id)
-        if not user_profile or not user_profile.get('family_id'):
+        family_id = (user_profile or {}).get('family_id') or (user_profile or {}).get('familyId')
+        if not user_profile or not family_id:
             logger.error(f"User {user_id} has no profile or family_id.")
             # This case should not happen in normal operation.
             # We generate a code for the user directly as a fallback.
@@ -97,8 +116,6 @@ class UserService:
             logger.warning(f"User {user_id} had no family_id. A new family and share code were generated.")
             return new_code
 
-        family_id = user_profile['family_id']
-        
         # The admin of the family is the user whose UID is the family_id.
         admin_profile = await self.get_user_profile(family_id)
 
@@ -111,7 +128,7 @@ class UserService:
         existing_code = admin_profile.get('share_code')
         if existing_code:
             return existing_code
-        
+
         # If the admin has no code, generate, save it to the admin's profile, and return it.
         new_code = await self._generate_share_code()
         await self.update_user_profile(admin_profile['uid'], {'share_code': new_code})
@@ -124,9 +141,9 @@ class UserService:
         docs = [doc async for doc in query.stream()]
         if not docs:
             return None
-        
+
         admin_profile = docs[0].to_dict()
-        return admin_profile.get('family_id')
+        return admin_profile.get('family_id') or admin_profile.get('familyId') or docs[0].id
 
     async def get_user_by_email(self, email: str) -> dict | None:
         """
@@ -136,7 +153,7 @@ class UserService:
         docs = [doc async for doc in query.stream()]
         if not docs:
             return None
-        
+
         user_data = docs[0].to_dict()
         user_data['uid'] = docs[0].id
         return user_data
@@ -153,12 +170,20 @@ class UserService:
         docs2_stream = query2.stream()
 
         members = {}
-        
+
         async def process_docs(stream):
             async for doc in stream:
                 member_data = doc.to_dict()
                 if 'uid' not in member_data:
                     member_data['uid'] = doc.id
+                if 'familyId' not in member_data and member_data.get('family_id'):
+                    member_data['familyId'] = member_data.get('family_id')
+                if 'family_id' not in member_data and member_data.get('familyId'):
+                    member_data['family_id'] = member_data.get('familyId')
+                if 'tripIds' not in member_data and member_data.get('trip_ids') is not None:
+                    member_data['tripIds'] = member_data.get('trip_ids')
+                if 'trip_ids' not in member_data and member_data.get('tripIds') is not None:
+                    member_data['trip_ids'] = member_data.get('tripIds')
                 # Use a schema to validate and structure the data before adding
                 try:
                     members[doc.id] = schemas.UserProfile(**member_data)
@@ -180,7 +205,7 @@ class UserService:
         # 1. Get family members and count them.
         family_members = await self.get_family_members_by_id(family_id)
         family_members_count = len(family_members)
-        
+
         # 2. Collect all unique trip_ids from all family members.
         all_trip_ids = set()
         for member in family_members:
@@ -195,7 +220,7 @@ class UserService:
             # Firestore 'in' query is limited to 30 items, so we process in chunks.
             chunk_size = 30
             trip_chunks = [trip_ids_list[i:i + chunk_size] for i in range(0, len(trip_ids_list), chunk_size)]
-            
+
             active_trip_tasks = []
             for chunk in trip_chunks:
                 if not chunk: continue
@@ -208,7 +233,7 @@ class UserService:
                 for stream in query_results:
                     async for _ in stream:
                         active_trips_count += 1
-        
+
         # 4. Count pending ideas.
         activities_ref = self.db.collection('activities')
         # Query for both familyId conventions due to historical data inconsistency.
@@ -255,13 +280,13 @@ class UserService:
         # 1. Remove user from all trips' participant lists
         trips_collection_ref = self.db.collection('trips')
         query = trips_collection_ref.where(filter=FieldFilter('participants', 'array_contains', user_id))
-        
+
         async for trip_doc in query.stream():
             trip_ref = trips_collection_ref.document(trip_doc.id)
             batch.update(trip_ref, {
                 'participants': firestore.ArrayRemove([user_id])
             })
-        
+
         # 2. Delete the user's profile document from Firestore
         user_doc_ref = self.users_collection.document(user_id)
         batch.delete(user_doc_ref)
@@ -274,4 +299,4 @@ class UserService:
             logger.error(f"Error during Firestore batch commit for user {user_id}: {e}")
             # This is also a critical error. The auth user might be deleted but their
             # firestore data remains. This requires manual intervention.
-            raise e 
+            raise e
