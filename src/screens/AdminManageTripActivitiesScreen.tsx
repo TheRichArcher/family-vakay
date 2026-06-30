@@ -156,7 +156,8 @@ export default function AdminManageTripActivitiesScreen() {
       </View>
 
       <View style={styles.activitiesSection}>
-        <Text style={styles.sectionTitle}>Activity Ideas</Text>
+        <Text style={styles.sectionTitle}>Decision Board</Text>
+        <Text style={styles.sectionDescription}>Review family votes, then schedule the ideas that made the cut.</Text>
         {activityIdeas.length === 0 ? <Text style={styles.emptyMessage}>No matching ideas found.</Text> :
           activityIdeas.map(item => (
             <ActivityCard
@@ -219,5 +220,6 @@ const styles = StyleSheet.create({
   daySeparatorText: { fontSize: 16, fontWeight: 'bold', color: colors.textSecondary, textAlign: 'center' },
   activitiesSection: { marginTop: 16, marginHorizontal: 16, marginBottom: 20 },
   sectionTitle: { fontSize: 22, fontWeight: 'bold', color: colors.text, marginBottom: 12 },
+  sectionDescription: { fontSize: 14, color: colors.textSecondary, marginBottom: 16 },
   emptyMessage: { fontSize: 16, color: colors.textSecondary, textAlign: 'center', paddingVertical: 20 },
-}); 
+});

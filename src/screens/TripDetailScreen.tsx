@@ -745,8 +745,8 @@ export default function TripDetailScreen() {
       </View>
 
       <View style={styles.activitiesSection}>
-        <Text style={styles.activitiesSectionTitle}>Activity Ideas</Text>
-        <Text style={styles.sectionDescription}>These are fun ideas we're thinking about! Vote for your favorites, and we might add them to our plan.</Text>
+        <Text style={styles.activitiesSectionTitle}>Decision Board</Text>
+        <Text style={styles.sectionDescription}>Vote on ideas, then schedule the winners into the trip plan.</Text>
         {filteredActivityIdeas.length === 0 ? <Text style={styles.emptyMessage}>No matching ideas found.</Text> :
           filteredActivityIdeas.map(item => (
             <ActivityCard
@@ -1065,4 +1065,3 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border
   },
 });
-

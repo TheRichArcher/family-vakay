@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, FlatList, Alert } from 'react-native';
+import { View, Text, StyleSheet, FlatList, Alert, TouchableOpacity } from 'react-native';
 import { RouteProp, useRoute } from '@react-navigation/native';
 import { colors } from '../theme/colors';
 import InterestsSurvey from '../components/InterestsSurvey';
 import { ActivitySuggestion, aiService } from '../services/aiService';
 import { TripsStackParamList } from '../navigation/AppNavigator';
+import { activitiesService, ActivityData } from '../services/activitiesService';
 
 type ActivitySuggestionRouteProp = RouteProp<TripsStackParamList, 'ActivitySuggestion'>;
 
@@ -14,6 +15,8 @@ const ActivitySuggestionScreen = () => {
   const [suggestions, setSuggestions] = useState<ActivitySuggestion[]>([]);
   const [showSurvey, setShowSurvey] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
+  const [savedSuggestionIds, setSavedSuggestionIds] = useState<string[]>([]);
+  const [savingSuggestionId, setSavingSuggestionId] = useState<string | null>(null);
 
   if (!tripId) {
     return (
@@ -40,6 +43,51 @@ const ActivitySuggestionScreen = () => {
       Alert.alert('Error', 'Failed to get suggestions. Please try again.');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const mapCostLevelToPriceRange = (costLevel?: string): ActivityData['priceRange'] => {
+    const normalized = (costLevel || '').toLowerCase();
+    if (normalized.includes('free') || normalized.includes('low') || normalized.includes('$')) return '$';
+    if (normalized.includes('moderate') || normalized.includes('medium') || normalized.includes('$$')) return '$$';
+    if (normalized.includes('high') || normalized.includes('expensive') || normalized.includes('$$$')) return '$$$';
+    return undefined;
+  };
+
+  const handleAddToDecisionBoard = async (suggestion: ActivitySuggestion) => {
+    if (!tripId || savedSuggestionIds.includes(suggestion.id)) return;
+
+    setSavingSuggestionId(suggestion.id);
+    try {
+      const descriptionParts = [
+        suggestion.why,
+        suggestion.kidFit ? `Kid fit: ${suggestion.kidFit}` : undefined,
+        suggestion.costLevel ? `Cost: ${suggestion.costLevel}` : undefined,
+        suggestion.timeNeeded ? `Time needed: ${suggestion.timeNeeded}` : undefined,
+      ].filter(Boolean);
+
+      const activityData: ActivityData = {
+        tripId,
+        name: suggestion.title,
+        description: descriptionParts.join('\n'),
+        activityTypes: suggestion.category ? [suggestion.category] : [],
+        isIdea: true,
+        isBooked: false,
+        isSurprise: false,
+        votes: {},
+        priceRange: mapCostLevelToPriceRange(suggestion.costLevel),
+        imageUrls: [],
+        images: [],
+        challenges: [],
+      };
+
+      await activitiesService.createActivity(activityData);
+      setSavedSuggestionIds(prev => [...prev, suggestion.id]);
+    } catch (error) {
+      console.error('Failed to add suggestion to decision board:', error);
+      Alert.alert('Error', 'Could not add this suggestion to the Decision Board.');
+    } finally {
+      setSavingSuggestionId(null);
     }
   };
 
@@ -73,6 +121,22 @@ const ActivitySuggestionScreen = () => {
                   {!!item.costLevel && <Text style={styles.metaText}>{item.costLevel}</Text>}
                   {!!item.timeNeeded && <Text style={styles.metaText}>{item.timeNeeded}</Text>}
                 </View>
+                <TouchableOpacity
+                  style={[
+                    styles.addButton,
+                    savedSuggestionIds.includes(item.id) && styles.addButtonSaved,
+                  ]}
+                  onPress={() => handleAddToDecisionBoard(item)}
+                  disabled={savedSuggestionIds.includes(item.id) || savingSuggestionId === item.id}
+                >
+                  <Text style={styles.addButtonText}>
+                    {savedSuggestionIds.includes(item.id)
+                      ? 'Added to Decision Board'
+                      : savingSuggestionId === item.id
+                        ? 'Adding...'
+                        : 'Add to Decision Board'}
+                  </Text>
+                </TouchableOpacity>
               </View>
             )}
           />
@@ -140,6 +204,22 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontSize: 12,
     fontWeight: '600',
+  },
+  addButton: {
+    marginTop: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+  },
+  addButtonSaved: {
+    backgroundColor: colors.success,
+  },
+  addButtonText: {
+    color: colors.white,
+    fontSize: 14,
+    fontWeight: '700',
   },
 });
 
