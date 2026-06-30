@@ -30,6 +30,7 @@ def test_activity_suggestion_prompt_uses_full_trip_context():
     assert "Beach Day" in prompt
     assert '"suggestions"' in prompt
     assert "Do not duplicate existing saved activities" in prompt
+    assert "Cruise/itinerary rules" in prompt
 
 
 def test_suggest_activity_returns_normalized_structured_suggestions(monkeypatch):
@@ -179,3 +180,108 @@ def test_suggest_activity_returns_structured_fallback_when_openai_is_off(monkeyp
     assert suggestions[0]["title"] == "Family food crawl in Cape Cod"
     assert suggestions[0]["category"] == "Dining"
     assert json.loads(result["text"])[0]["title"] == "Family food crawl in Cape Cod"
+
+
+def test_suggest_activity_uses_selected_cruise_stop(monkeypatch):
+    captured = {}
+
+    class FakeTripsService:
+        async def get_trip_by_id(self, trip_id, current_user):
+            return schemas.Trip(
+                id=trip_id,
+                name="Bahamas Cruise",
+                description="Family cruise",
+                startDate="2026-07-01",
+                endDate="2026-07-07",
+                location="Bahamas",
+                status="upcoming",
+                participants=["adult-1", "kid-1"],
+                ownerId="adult-1",
+                tripType="cruise",
+                itinerary=[
+                    {
+                        "id": "stop-sea",
+                        "date": "2026-07-02",
+                        "type": "sea",
+                        "portName": "At Sea",
+                    },
+                    {
+                        "id": "stop-nassau",
+                        "date": "2026-07-03",
+                        "type": "port",
+                        "portName": "Nassau",
+                        "arrivalTime": "08:00",
+                        "departureTime": "17:00",
+                    },
+                ],
+            )
+
+    class FakeActivitiesService:
+        async def get_activities_for_trip(self, trip_id, current_user):
+            return []
+
+    class FakeUserService:
+        async def get_user_profile(self, user_id):
+            return {"uid": user_id, "age": 42}
+
+        async def get_users_by_ids(self, user_ids):
+            return [{"uid": "kid-1", "name": "Kid", "role": "kid", "age": 10, "isKid": True}]
+
+    class FakeMessage:
+        content = json.dumps(
+            {
+                "suggestions": [
+                    {
+                        "title": "Nassau port snack walk",
+                        "category": "Food",
+                        "why": "Fits the port window.",
+                        "kidFit": "Best for ages 10+",
+                        "costLevel": "$$",
+                        "timeNeeded": "1-2 hours",
+                    }
+                ]
+            }
+        )
+
+    class FakeChoice:
+        message = FakeMessage()
+
+    class FakeResponse:
+        choices = [FakeChoice()]
+
+    class FakeCompletions:
+        @staticmethod
+        def create(**kwargs):
+            captured.update(kwargs)
+            return FakeResponse()
+
+    class FakeChat:
+        completions = FakeCompletions()
+
+    class FakeClient:
+        chat = FakeChat()
+
+    monkeypatch.setattr("app.services.ai_service.TripsService", FakeTripsService)
+    monkeypatch.setattr("app.services.ai_service.ActivitiesService", FakeActivitiesService)
+    monkeypatch.setattr("app.services.ai_service.UserService", FakeUserService)
+
+    service = AIService()
+    service.client = FakeClient()
+
+    result = asyncio.run(
+        service.suggest_activity(
+            "trip-1",
+            "Based on the following interests: Foodie",
+            {"uid": "adult-1", "role": "admin"},
+            "stop-nassau",
+        )
+    )
+
+    suggestion = result["suggestions"][0]
+    assert suggestion["itineraryStopId"] == "stop-nassau"
+    assert suggestion["itineraryDate"] == "2026-07-03"
+    assert suggestion["portName"] == "Nassau"
+    prompt = captured["messages"][0]["content"]
+    assert "Nassau on 2026-07-03" in prompt
+    assert "selectedItineraryStop" in prompt
+    assert "08:00" in prompt

@@ -12,7 +12,7 @@ import {
   Image,
 } from 'react-native';
 import { colors } from '../theme/colors';
-import { Trip, TripData } from '../services/trips';
+import { ItineraryStop, Trip, TripData } from '../services/trips';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useAuth } from '../contexts/AuthContext';
 import * as ImagePicker from 'expo-image-picker';
@@ -35,6 +35,8 @@ export function TripForm({ initialValues, onSubmit, onCancel, isLoading: externa
   const [startDate, setStartDate] = useState(initialValues?.startDate ? new Date(`${initialValues.startDate}T00:00:00`) : new Date());
   const [endDate, setEndDate] = useState(initialValues?.endDate ? new Date(`${initialValues.endDate}T00:00:00`) : new Date());
   const [status, setStatus] = useState<Trip['status']>(initialValues?.status || 'upcoming');
+  const [tripType, setTripType] = useState<Trip['tripType']>(initialValues?.tripType || 'standard');
+  const [itinerary, setItinerary] = useState<ItineraryStop[]>(initialValues?.itinerary || []);
   const [isSubmittingInternal, setIsSubmittingInternal] = useState(false);
   const [showStartDatePicker, setShowStartDatePicker] = useState(false);
   const [showEndDatePicker, setShowEndDatePicker] = useState(false);
@@ -134,6 +136,41 @@ export function TripForm({ initialValues, onSubmit, onCancel, isLoading: externa
     );
   };
 
+  const formatToYYYYMMDD = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const addItineraryStop = () => {
+    const nextIndex = itinerary.length;
+    const defaultDate = new Date(startDate);
+    defaultDate.setDate(startDate.getDate() + nextIndex);
+    const clampedDate = defaultDate > endDate ? endDate : defaultDate;
+    setItinerary(prev => [
+      ...prev,
+      {
+        id: `stop-${Date.now()}-${nextIndex}`,
+        date: formatToYYYYMMDD(clampedDate),
+        type: nextIndex === 0 ? 'embark' : 'port',
+        portName: nextIndex === 0 ? location || 'Embarkation' : '',
+        location: '',
+        arrivalTime: '',
+        departureTime: '',
+        notes: '',
+      },
+    ]);
+  };
+
+  const updateItineraryStop = (id: string, updates: Partial<ItineraryStop>) => {
+    setItinerary(prev => prev.map(stop => stop.id === id ? { ...stop, ...updates } : stop));
+  };
+
+  const removeItineraryStop = (id: string) => {
+    setItinerary(prev => prev.filter(stop => stop.id !== id));
+  };
+
   const pickImage = async () => {
     if (isLoading) return;
     const { status: mediaLibraryStatus } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -170,14 +207,17 @@ export function TripForm({ initialValues, onSubmit, onCancel, isLoading: externa
 
     setIsSubmittingInternal(true);
 
-    const formatToYYYYMMDD = (date: Date) => {
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
-    };
-
     const participants = Array.from(new Set([...selectedParticipants, user.uid]));
+    const cleanItinerary = itinerary
+      .filter(stop => stop.date && stop.portName)
+      .map(stop => ({
+        ...stop,
+        portName: stop.type === 'sea' ? (stop.portName || 'At Sea') : stop.portName,
+        location: stop.location || undefined,
+        arrivalTime: stop.arrivalTime || undefined,
+        departureTime: stop.departureTime || undefined,
+        notes: stop.notes || undefined,
+      }));
 
     const tripData: TripData = {
       name,
@@ -189,6 +229,8 @@ export function TripForm({ initialValues, onSubmit, onCancel, isLoading: externa
       participants,
       ownerId: user.uid,
       coverImageUrl: coverImageLocalUri,
+      tripType,
+      itinerary: tripType === 'cruise' ? cleanItinerary : [],
     };
 
     if (budget) {
@@ -319,6 +361,126 @@ export function TripForm({ initialValues, onSubmit, onCancel, isLoading: externa
             editable={!isLoading}
           />
 
+          <Text style={styles.label}>Trip Type</Text>
+          <View style={styles.statusContainer}>
+            {(['standard', 'cruise'] as const).map((type) => (
+              <TouchableOpacity
+                key={type}
+                style={[
+                  styles.statusButton,
+                  tripType === type && styles.statusButtonActive,
+                  isLoading && styles.buttonDisabled,
+                ]}
+                onPress={() => setTripType(type)}
+                disabled={isLoading}
+              >
+                <Text
+                  style={[
+                    styles.statusButtonText,
+                    tripType === type && styles.statusButtonTextActive,
+                  ]}
+                >
+                  {type === 'standard' ? 'Standard' : 'Cruise'}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {tripType === 'cruise' && (
+            <View style={styles.itinerarySection}>
+              <View style={styles.itineraryHeader}>
+                <Text style={styles.sectionTitle}>Cruise Itinerary</Text>
+                <TouchableOpacity
+                  style={[styles.smallButton, isLoading && styles.buttonDisabled]}
+                  onPress={addItineraryStop}
+                  disabled={isLoading}
+                >
+                  <Text style={styles.smallButtonText}>Add Stop</Text>
+                </TouchableOpacity>
+              </View>
+
+              {itinerary.length === 0 ? (
+                <Text style={styles.helperText}>Add each sea day, port day, embarkation, and debarkation day.</Text>
+              ) : (
+                itinerary.map((stop, index) => (
+                  <View key={stop.id} style={styles.stopCard}>
+                    <View style={styles.stopHeader}>
+                      <Text style={styles.stopTitle}>Day {index + 1}</Text>
+                      <TouchableOpacity onPress={() => removeItineraryStop(stop.id)} disabled={isLoading}>
+                        <Text style={styles.removeStopText}>Remove</Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    <Text style={styles.compactLabel}>Stop Type</Text>
+                    <View style={styles.stopTypeRow}>
+                      {(['embark', 'port', 'sea', 'debark'] as const).map((type) => (
+                        <TouchableOpacity
+                          key={type}
+                          style={[styles.stopTypeButton, stop.type === type && styles.stopTypeButtonActive]}
+                          onPress={() => updateItineraryStop(stop.id, {
+                            type,
+                            portName: type === 'sea' && !stop.portName ? 'At Sea' : stop.portName,
+                          })}
+                          disabled={isLoading}
+                        >
+                          <Text style={[styles.stopTypeText, stop.type === type && styles.stopTypeTextActive]}>
+                            {type === 'debark' ? 'Debark' : type.charAt(0).toUpperCase() + type.slice(1)}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+
+                    <TextInput
+                      style={styles.input}
+                      value={stop.portName}
+                      onChangeText={(value) => updateItineraryStop(stop.id, { portName: value })}
+                      placeholder={stop.type === 'sea' ? 'At Sea' : 'Port or city name'}
+                      editable={!isLoading}
+                    />
+                    <TextInput
+                      style={styles.input}
+                      value={stop.date}
+                      onChangeText={(value) => updateItineraryStop(stop.id, { date: value })}
+                      placeholder="YYYY-MM-DD"
+                      editable={!isLoading}
+                    />
+                    <TextInput
+                      style={styles.input}
+                      value={stop.location || ''}
+                      onChangeText={(value) => updateItineraryStop(stop.id, { location: value })}
+                      placeholder="Specific area or terminal (optional)"
+                      editable={!isLoading}
+                    />
+                    <View style={styles.timeRow}>
+                      <TextInput
+                        style={[styles.input, styles.timeInput]}
+                        value={stop.arrivalTime || ''}
+                        onChangeText={(value) => updateItineraryStop(stop.id, { arrivalTime: value })}
+                        placeholder="Arrive"
+                        editable={!isLoading}
+                      />
+                      <TextInput
+                        style={[styles.input, styles.timeInput]}
+                        value={stop.departureTime || ''}
+                        onChangeText={(value) => updateItineraryStop(stop.id, { departureTime: value })}
+                        placeholder="Depart"
+                        editable={!isLoading}
+                      />
+                    </View>
+                    <TextInput
+                      style={[styles.input, styles.compactTextArea]}
+                      value={stop.notes || ''}
+                      onChangeText={(value) => updateItineraryStop(stop.id, { notes: value })}
+                      placeholder="Notes, excursion constraints, ship all-aboard time..."
+                      multiline
+                      editable={!isLoading}
+                    />
+                  </View>
+                ))
+              )}
+            </View>
+          )}
+
           <Text style={styles.label}>Participants</Text>
           <View style={styles.participantsContainer}>
             {allParticipants.map(member => (
@@ -444,6 +606,17 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: 8,
   },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  helperText: {
+    color: colors.textSecondary,
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 12,
+  },
   input: {
     borderWidth: 1,
     borderColor: colors.border,
@@ -503,6 +676,91 @@ const styles = StyleSheet.create({
   },
   statusButtonTextActive: {
     color: colors.textLight,
+  },
+  itinerarySection: {
+    marginBottom: 16,
+  },
+  itineraryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  smallButton: {
+    backgroundColor: colors.primary,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  smallButtonText: {
+    color: colors.textLight,
+    fontWeight: '700',
+  },
+  stopCard: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 12,
+    backgroundColor: colors.surface,
+  },
+  stopHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  stopTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  removeStopText: {
+    color: colors.error,
+    fontWeight: '700',
+  },
+  compactLabel: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    fontWeight: '700',
+    marginBottom: 6,
+  },
+  stopTypeRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 10,
+  },
+  stopTypeButton: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 16,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    backgroundColor: colors.background,
+  },
+  stopTypeButtonActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  stopTypeText: {
+    color: colors.textSecondary,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  stopTypeTextActive: {
+    color: colors.textLight,
+  },
+  timeRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  timeInput: {
+    flex: 1,
+  },
+  compactTextArea: {
+    minHeight: 70,
+    textAlignVertical: 'top',
   },
   buttonContainer: {
     flexDirection: 'row',

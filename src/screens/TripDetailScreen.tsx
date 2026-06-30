@@ -576,6 +576,36 @@ export default function TripDetailScreen() {
           </View>
         </View>
 
+        {currentTrip.tripType === 'cruise' && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Cruise Itinerary</Text>
+            {currentTrip.itinerary && currentTrip.itinerary.length > 0 ? (
+              <View style={styles.itineraryList}>
+                {currentTrip.itinerary.map((stop, index) => (
+                  <View key={stop.id} style={styles.itineraryStop}>
+                    <View style={styles.itineraryDayBadge}>
+                      <Text style={styles.itineraryDayText}>Day {index + 1}</Text>
+                    </View>
+                    <View style={styles.itineraryStopBody}>
+                      <Text style={styles.itineraryStopTitle}>{stop.portName}</Text>
+                      <Text style={styles.itineraryStopMeta}>
+                        {[
+                          stop.date,
+                          stop.type === 'sea' ? 'Sea day' : stop.type,
+                          [stop.arrivalTime, stop.departureTime].filter(Boolean).join(' - '),
+                        ].filter(Boolean).join(' • ')}
+                      </Text>
+                      {!!stop.notes && <Text style={styles.itineraryStopNotes}>{stop.notes}</Text>}
+                    </View>
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <Text style={styles.emptyMessage}>No cruise stops added yet. Add them from Manage Trips.</Text>
+            )}
+          </View>
+        )}
+
         {currentTrip?.vacationCode && !isKid && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Trip Code</Text>
@@ -823,6 +853,52 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: colors.text,
     marginBottom: 10,
+  },
+  itineraryList: {
+    gap: 10,
+  },
+  itineraryStop: {
+    flexDirection: 'row',
+    gap: 10,
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    padding: 12,
+  },
+  itineraryDayBadge: {
+    width: 58,
+    borderRadius: 6,
+    backgroundColor: colors.backgroundAlt,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+  },
+  itineraryDayText: {
+    color: colors.textSecondary,
+    fontWeight: '700',
+    fontSize: 12,
+  },
+  itineraryStopBody: {
+    flex: 1,
+  },
+  itineraryStopTitle: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  itineraryStopMeta: {
+    color: colors.textSecondary,
+    fontSize: 13,
+    fontWeight: '600',
+    textTransform: 'capitalize',
+  },
+  itineraryStopNotes: {
+    color: colors.textSecondary,
+    fontSize: 13,
+    marginTop: 6,
+    lineHeight: 18,
   },
   vacationCodeContainer: {
     flexDirection: 'row',

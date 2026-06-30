@@ -122,6 +122,11 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
             <Text style={styles.activityName}>{item.name}</Text>
           </View>
           {item.date && <Text style={styles.activityDate}>{format(parseISO(item.date), 'MMM d, yyyy')} {item.time || ''}</Text>}
+          {(item.portName || item.itineraryDate) && (
+            <Text style={styles.cruiseStopText}>
+              {[item.itineraryDate, item.portName].filter(Boolean).join(' • ')}
+            </Text>
+          )}
           {item.description && <Text style={styles.activityDescription}>{item.description}</Text>}
           {item.location && <Text style={styles.activityDetailText}>📍 {item.location}</Text>}
            {item.website && <TouchableOpacity onPress={() => openWebsiteUrl(item.website)}><Text style={styles.linkText}>🔗 Visit Website</Text></TouchableOpacity>}
@@ -351,6 +356,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   activityDate: { fontSize: 14, color: colors.textSecondary, marginBottom: 8 },
+  cruiseStopText: { fontSize: 13, color: colors.primary, fontWeight: '700', marginBottom: 8 },
   activityDescription: { fontSize: 14, color: colors.textSecondary, marginBottom: 8 },
   activityDetailText: { fontSize: 14, color: colors.textSecondary, marginBottom: 4 },
   activityActions: { 
@@ -537,4 +543,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default ActivityCard; 
+export default ActivityCard;

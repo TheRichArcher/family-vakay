@@ -13,6 +13,9 @@ export interface ActivitySuggestion {
   kidFit?: string;
   costLevel?: string;
   timeNeeded?: string;
+  itineraryStopId?: string | null;
+  itineraryDate?: string | null;
+  portName?: string | null;
 }
 
 const parseSuggestions = (response: AIResponse): ActivitySuggestion[] => {
@@ -44,8 +47,8 @@ export const aiService = {
     return response.data;
   },
 
-  async suggestActivity(tripId: string, context?: string): Promise<AIResponse> {
-    const payload = { context: context || 'anywhere' };
+  async suggestActivity(tripId: string, context?: string, itineraryStopId?: string): Promise<AIResponse> {
+    const payload = { context: context || 'anywhere', itinerary_stop_id: itineraryStopId };
     const response = await apiClient.post<AIResponse>(`/api/v1/ai/trips/${tripId}/suggest-activity`, payload);
     const suggestions = parseSuggestions(response.data);
     if (suggestions.length > 0) {
@@ -58,9 +61,9 @@ export const aiService = {
     return response.data;
   },
 
-  async suggestActivities(tripId: string, interests: string[]): Promise<AIResponse> {
+  async suggestActivities(tripId: string, interests: string[], itineraryStopId?: string): Promise<AIResponse> {
     const prompt = `Based on the following interests: ${interests.join(', ')}, suggest some activities.`;
-    const payload = { context: prompt };
+    const payload = { context: prompt, itinerary_stop_id: itineraryStopId };
     const response = await apiClient.post<AIResponse>(`/api/v1/ai/trips/${tripId}/suggest-activity`, payload);
     return response.data;
   },

@@ -20,6 +20,19 @@ export interface Trip {
   updatedAt?: string;
   vacationCode?: string;
   scavengerHuntEnabled?: boolean;
+  tripType?: 'standard' | 'cruise';
+  itinerary?: ItineraryStop[];
+}
+
+export interface ItineraryStop {
+  id: string;
+  date: string;
+  type: 'embark' | 'port' | 'sea' | 'debark';
+  portName: string;
+  location?: string | null;
+  arrivalTime?: string | null;
+  departureTime?: string | null;
+  notes?: string | null;
 }
 
 export interface TripWithBudget extends Trip {

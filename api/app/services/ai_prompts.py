@@ -204,6 +204,13 @@ def construct_activity_suggestion_prompt(
     Your job:
     Suggest 5 genuinely useful family vacation activities. Use the trip location, trip dates, budget, existing saved activities, selected interests, participant ages, and the requesting user's age.
 
+    Cruise/itinerary rules:
+    - If tripContext.trip.tripType is "cruise", prioritize the selectedItineraryStop inside Trip context.
+    - For port stops, suggestions must fit the port name/location, arrival/departure window, and a realistic return-to-ship buffer.
+    - For sea days, suggest ship-friendly ideas, downtime, shows, pools, games, family challenges, meals, or onboard planning. Do not suggest off-ship venues.
+    - For embark/debark days, account for luggage, boarding, checkout, transfers, and shorter usable activity windows.
+    - Tag the suggestion implicitly to the selected stop by making the title and why specific to that day/location.
+
     Rules:
     - Do not suggest scavenger hunts.
     - Do not duplicate existing saved activities.

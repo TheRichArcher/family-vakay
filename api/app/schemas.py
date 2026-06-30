@@ -20,6 +20,16 @@ class TripStatus(str, Enum):
     COMPLETED = "completed"
     CANCELLED = "cancelled"
 
+class TripType(str, Enum):
+    STANDARD = "standard"
+    CRUISE = "cruise"
+
+class ItineraryStopType(str, Enum):
+    EMBARK = "embark"
+    PORT = "port"
+    SEA = "sea"
+    DEBARK = "debark"
+
 class ChallengeStatus(str, Enum):
     PENDING = 'pending'
     SUBMITTED = 'submitted'
@@ -45,6 +55,18 @@ class ChallengeCompletion(BaseModel):
         # It might already be a datetime object or a parsable string, so we let Pydantic handle it.
         return v
 
+class ItineraryStop(BaseModel):
+    model_config = ConfigDict(populate_by_name=True, extra='allow')
+
+    id: str
+    date: DateType
+    type: ItineraryStopType = ItineraryStopType.PORT
+    port_name: str = Field(..., alias='portName')
+    location: Optional[str] = None
+    arrival_time: Optional[str] = Field(None, alias='arrivalTime')
+    departure_time: Optional[str] = Field(None, alias='departureTime')
+    notes: Optional[str] = None
+
 class Trip(BaseModel):
     model_config = ConfigDict(from_attributes=True, populate_by_name=True, use_enum_values=True, model_dump_by_alias=True)
 
@@ -64,6 +86,8 @@ class Trip(BaseModel):
     created_at: Optional[datetime] = Field(None, alias='createdAt')
     updated_at: Optional[datetime] = Field(None, alias='updatedAt')
     vacation_code: Optional[str] = Field(None, alias='vacationCode')
+    trip_type: TripType = Field(TripType.STANDARD, alias='tripType')
+    itinerary: List[ItineraryStop] = Field(default_factory=list)
         
 class TripWithBudget(Trip):
     total_spent: float = Field(0.0, alias='totalSpent')
@@ -82,6 +106,8 @@ class TripCreate(BaseModel):
     cover_image_thumbnail_url: Optional[str] = Field(None, alias='coverImageThumbnailUrl')
     cover_image_resized_url: Optional[str] = Field(None, alias='coverImageResizedUrl')
     budget: Optional[float] = None
+    trip_type: TripType = Field(TripType.STANDARD, alias='tripType')
+    itinerary: List[ItineraryStop] = Field(default_factory=list)
     
 class TripUpdate(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
@@ -97,6 +123,8 @@ class TripUpdate(BaseModel):
     cover_image_thumbnail_url: Optional[str] = Field(None, alias='coverImageThumbnailUrl')
     cover_image_resized_url: Optional[str] = Field(None, alias='coverImageResizedUrl')
     budget: Optional[float] = None
+    trip_type: Optional[TripType] = Field(None, alias='tripType')
+    itinerary: Optional[List[ItineraryStop]] = None
 
 class TripParticipantsUpdate(BaseModel):
     participant_uids: List[str]
@@ -196,6 +224,9 @@ class ActivityBase(BaseModel):
     ratings: Optional[Dict] = None
     hidden_from: Optional[List[str]] = Field(default_factory=list, alias='hiddenFrom')
     price_range: Optional[str] = Field(None, alias='priceRange')
+    itinerary_stop_id: Optional[str] = Field(None, alias='itineraryStopId')
+    itinerary_date: Optional[str] = Field(None, alias='itineraryDate')
+    port_name: Optional[str] = Field(None, alias='portName')
 
 class ActivityCreate(ActivityBase):
     pass
@@ -226,6 +257,9 @@ class ActivityUpdate(BaseModel):
     ratings: Optional[Dict] = None
     hidden_from: Optional[List[str]] = Field(None, alias='hiddenFrom')
     price_range: Optional[str] = Field(None, alias='priceRange')
+    itinerary_stop_id: Optional[str] = Field(None, alias='itineraryStopId')
+    itinerary_date: Optional[str] = Field(None, alias='itineraryDate')
+    port_name: Optional[str] = Field(None, alias='portName')
 
 class Activity(ActivityBase):
     model_config = ConfigDict(from_attributes=True, populate_by_name=True, model_dump_by_alias=True)

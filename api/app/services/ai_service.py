@@ -69,6 +69,10 @@ class AIService:
         }
         budget = trip_context.get("trip", {}).get("budget")
         lower_context = (context or "").lower()
+        selected_stop = trip_context.get("selectedItineraryStop") or {}
+        selected_stop_id = selected_stop.get("id")
+        selected_stop_date = selected_stop.get("date")
+        selected_port_name = selected_stop.get("portName") or selected_stop.get("port_name")
 
         templates = [
             {
@@ -134,7 +138,36 @@ class AIService:
             for suggestion in ordered
             if suggestion["title"].strip().lower() not in existing_names
         ]
-        return deduped[:5] or ordered[:3]
+        selected = deduped[:5] or ordered[:3]
+        return [
+            {
+                **suggestion,
+                "itineraryStopId": selected_stop_id,
+                "itineraryDate": str(selected_stop_date) if selected_stop_date else None,
+                "portName": selected_port_name,
+            }
+            for suggestion in selected
+        ]
+
+    def _get_selected_itinerary_stop(self, trip_payload: dict, itinerary_stop_id: str | None) -> dict | None:
+        itinerary = trip_payload.get("itinerary") or []
+        if itinerary_stop_id:
+            for stop in itinerary:
+                if isinstance(stop, dict) and str(stop.get("id")) == itinerary_stop_id:
+                    return stop
+        if len(itinerary) == 1 and isinstance(itinerary[0], dict):
+            return itinerary[0]
+        return None
+
+    def _format_stop_label(self, stop: dict | None, fallback_location: str) -> str:
+        if not stop:
+            return fallback_location
+        stop_type = stop.get("type") or "port"
+        port_name = stop.get("portName") or stop.get("port_name") or fallback_location
+        stop_date = stop.get("date")
+        if stop_type == "sea":
+            return f"sea day on {stop_date}" if stop_date else "sea day"
+        return f"{port_name} on {stop_date}" if stop_date else str(port_name)
 
     def _get_age_group(self, age: int | None) -> str:
         """Determines the age group string from a numerical age."""
@@ -401,7 +434,7 @@ class AIService:
             logging.error(f"Error generating joke/fact from OpenAI for trip {trip_id}: {e}")
             raise Exception("Couldn't think of anything funny right now. Please try again!")
 
-    async def suggest_activity(self, trip_id: str, context: str, current_user: dict) -> dict:
+    async def suggest_activity(self, trip_id: str, context: str, current_user: dict, itinerary_stop_id: str | None = None) -> dict:
         trips_service = TripsService()
         activities_service = ActivitiesService()
         user_service = UserService()
@@ -409,6 +442,8 @@ class AIService:
         trip = await trips_service.get_trip_by_id(trip_id, current_user)
         trip_payload = trip.model_dump(by_alias=True) if hasattr(trip, "model_dump") else dict(trip)
         location = trip_payload.get("location") or 'our vacation spot'
+        selected_stop = self._get_selected_itinerary_stop(trip_payload, itinerary_stop_id)
+        suggestion_location = self._format_stop_label(selected_stop, location)
 
         user_profile = await user_service.get_user_profile(current_user["uid"])
         user_age = (user_profile or {}).get("age") or current_user.get('age') or 7
@@ -466,16 +501,19 @@ class AIService:
                 "endDate": str(trip_payload.get("endDate") or trip_payload.get("end_date")),
                 "budget": trip_payload.get("budget"),
                 "status": trip_payload.get("status"),
+                "tripType": trip_payload.get("tripType") or "standard",
+                "itinerary": trip_payload.get("itinerary") or [],
             },
+            "selectedItineraryStop": selected_stop,
             "participants": participants,
             "existingActivities": existing_activities,
         }
 
         if not self.client:
-            suggestions = self._build_fallback_activity_suggestions(location, context, trip_context)
+            suggestions = self._build_fallback_activity_suggestions(suggestion_location, context, trip_context)
             return {"text": json.dumps(suggestions), "suggestions": suggestions}
 
-        prompt = construct_activity_suggestion_prompt(location, context, user_age, trip_context)
+        prompt = construct_activity_suggestion_prompt(suggestion_location, context, user_age, trip_context)
 
         try:
             if not self.client:
@@ -508,6 +546,9 @@ class AIService:
                     "kidFit": str(suggestion.get("kidFit") or suggestion.get("kid_fit") or ""),
                     "costLevel": str(suggestion.get("costLevel") or suggestion.get("cost_level") or ""),
                     "timeNeeded": str(suggestion.get("timeNeeded") or suggestion.get("time_needed") or ""),
+                    "itineraryStopId": selected_stop.get("id") if selected_stop else None,
+                    "itineraryDate": str(selected_stop.get("date")) if selected_stop and selected_stop.get("date") else None,
+                    "portName": selected_stop.get("portName") or selected_stop.get("port_name") if selected_stop else None,
                 })
             if not normalized:
                 raise Exception("The AI returned empty suggestions.")

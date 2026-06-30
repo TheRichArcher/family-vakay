@@ -66,6 +66,9 @@ export interface Activity {
   ratings?: { [userId: string]: Rating };
   coverImageUrl?: string | null;
   priceRange?: '$' | '$$' | '$$$' | '$$$$';
+  itineraryStopId?: string | null;
+  itineraryDate?: string | null;
+  portName?: string | null;
 }
 
 export type ActivityData = Omit<Activity, 'id'>;
@@ -93,6 +96,9 @@ export interface PartialActivityData {
   ratings?: { [userId: string]: Rating };
   coverImageUrl?: string | null;
   priceRange?: '$' | '$$' | '$$$' | '$$$$';
+  itineraryStopId?: string | null;
+  itineraryDate?: string | null;
+  portName?: string | null;
 }
 
 export const activitiesService = {

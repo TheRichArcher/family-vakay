@@ -85,6 +85,8 @@ export default function EditTripScreen() {
         status: tripFormData.status,
         participants: tripFormData.participants,
         coverImageUrl: coverImageUrlToSave,
+        tripType: tripFormData.tripType,
+        itinerary: tripFormData.itinerary,
       };
 
       await tripsService.updateTrip(trip.id, finalTripData);

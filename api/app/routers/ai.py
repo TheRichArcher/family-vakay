@@ -13,6 +13,7 @@ class StoryRequest(BaseModel):
 
 class BoredRequest(BaseModel):
     context: Optional[str] = "anywhere"
+    itinerary_stop_id: Optional[str] = None
 
 @router.get("/status")
 async def ai_status():
@@ -40,7 +41,7 @@ async def generate_joke_or_fact(trip_id: str, current_user: dict = Depends(get_c
 async def suggest_activity(trip_id: str, req: BoredRequest, current_user: dict = Depends(get_current_user)):
     ai_service = AIService()
     try:
-        result = await ai_service.suggest_activity(trip_id, req.context, current_user)
+        result = await ai_service.suggest_activity(trip_id, req.context, current_user, req.itinerary_stop_id)
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
