@@ -54,7 +54,87 @@ class AIService:
         api_key = os.getenv("OPENAI_API_KEY")
         self.client = OpenAI(api_key=api_key) if api_key else None
         self.model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
-        # TEST COMMENT
+
+    def _build_fallback_activity_suggestions(
+        self,
+        location: str,
+        context: str,
+        trip_context: dict,
+    ) -> list[dict]:
+        """Return useful structured suggestions when OpenAI is not configured."""
+        existing_names = {
+            str(activity.get("name", "")).strip().lower()
+            for activity in trip_context.get("existingActivities", [])
+            if activity.get("name")
+        }
+        budget = trip_context.get("trip", {}).get("budget")
+        lower_context = (context or "").lower()
+
+        templates = [
+            {
+                "id": "fallback-food",
+                "title": f"Family food crawl in {location}",
+                "category": "Dining",
+                "why": "Pick two or three low-pressure food stops so everyone gets a say without turning dinner into a debate.",
+                "kidFit": "Good for mixed ages",
+                "costLevel": "$$" if budget else "Flexible",
+                "timeNeeded": "1.5 to 2 hours",
+            },
+            {
+                "id": "fallback-outdoor",
+                "title": f"Easy outdoor reset near {location}",
+                "category": "Outdoor",
+                "why": "A simple walk, viewpoint, beach, park, or scenic stop gives the trip breathing room between booked activities.",
+                "kidFit": "Good for kids who need to move",
+                "costLevel": "$",
+                "timeNeeded": "45 to 90 minutes",
+            },
+            {
+                "id": "fallback-tourist",
+                "title": f"One classic {location} tourist stop",
+                "category": "Tourist",
+                "why": "Do one obvious local attraction on purpose, then keep the rest of the day flexible.",
+                "kidFit": "Best when paired with snacks or a short visit",
+                "costLevel": "$$",
+                "timeNeeded": "1 to 3 hours",
+            },
+            {
+                "id": "fallback-active",
+                "title": f"Burn-energy activity in {location}",
+                "category": "Entertainment",
+                "why": "Use this when the kids are restless: arcade, mini golf, bowling, bikes, climbing, or another easy win nearby.",
+                "kidFit": "Strong fit for active kids",
+                "costLevel": "$$",
+                "timeNeeded": "1 to 2 hours",
+            },
+            {
+                "id": "fallback-relax",
+                "title": f"Low-key recovery block in {location}",
+                "category": "Relaxation",
+                "why": "Protect one block with no ambitious agenda so the trip does not become a forced march.",
+                "kidFit": "Good for tired kids and adults",
+                "costLevel": "$",
+                "timeNeeded": "60 to 90 minutes",
+            },
+        ]
+
+        if "food" in lower_context or "foodie" in lower_context:
+            ordered = [templates[0], templates[2], templates[1], templates[3], templates[4]]
+        elif "active" in lower_context or "athletic" in lower_context:
+            ordered = [templates[3], templates[1], templates[2], templates[0], templates[4]]
+        elif "relax" in lower_context:
+            ordered = [templates[4], templates[1], templates[0], templates[2], templates[3]]
+        elif "tourist" in lower_context:
+            ordered = [templates[2], templates[0], templates[1], templates[3], templates[4]]
+        else:
+            ordered = templates
+
+        deduped = [
+            suggestion
+            for suggestion in ordered
+            if suggestion["title"].strip().lower() not in existing_names
+        ]
+        return deduped[:5] or ordered[:3]
 
     def _get_age_group(self, age: int | None) -> str:
         """Determines the age group string from a numerical age."""
@@ -390,6 +470,10 @@ class AIService:
             "participants": participants,
             "existingActivities": existing_activities,
         }
+
+        if not self.client:
+            suggestions = self._build_fallback_activity_suggestions(location, context, trip_context)
+            return {"text": json.dumps(suggestions), "suggestions": suggestions}
 
         prompt = construct_activity_suggestion_prompt(location, context, user_age, trip_context)
 

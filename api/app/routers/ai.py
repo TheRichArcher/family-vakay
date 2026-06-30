@@ -40,8 +40,6 @@ async def generate_joke_or_fact(trip_id: str, current_user: dict = Depends(get_c
 async def suggest_activity(trip_id: str, req: BoredRequest, current_user: dict = Depends(get_current_user)):
     ai_service = AIService()
     try:
-        if not ai_service.client:
-            return {"text": "No AI suggestions available at the moment. Explore nearby activities instead!"}
         result = await ai_service.suggest_activity(trip_id, req.context, current_user)
         return result
     except Exception as e:
@@ -58,4 +56,4 @@ async def create_story(trip_id: str, req: StoryRequest, current_user: dict = Dep
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) 
+        raise HTTPException(status_code=500, detail=str(e))

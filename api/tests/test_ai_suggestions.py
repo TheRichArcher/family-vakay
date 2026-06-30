@@ -130,3 +130,52 @@ def test_suggest_activity_returns_normalized_structured_suggestions(monkeypatch)
     assert "Beach Weekend" in prompt
     assert "Beach Day" in prompt
     assert "Kid" in prompt
+
+
+def test_suggest_activity_returns_structured_fallback_when_openai_is_off(monkeypatch):
+    class FakeTripsService:
+        async def get_trip_by_id(self, trip_id, current_user):
+            return schemas.Trip(
+                id=trip_id,
+                name="Beach Weekend",
+                description="Family beach trip",
+                startDate="2026-07-01",
+                endDate="2026-07-04",
+                location="Cape Cod",
+                status="upcoming",
+                participants=["adult-1", "kid-1"],
+                ownerId="adult-1",
+                budget=900,
+            )
+
+    class FakeActivitiesService:
+        async def get_activities_for_trip(self, trip_id, current_user):
+            return [{"name": "Beach Day", "description": "Morning at the beach"}]
+
+    class FakeUserService:
+        async def get_user_profile(self, user_id):
+            return {"uid": user_id, "age": 42}
+
+        async def get_users_by_ids(self, user_ids):
+            return [{"uid": "kid-1", "name": "Kid", "role": "kid", "age": 10, "isKid": True}]
+
+    monkeypatch.setattr("app.services.ai_service.TripsService", FakeTripsService)
+    monkeypatch.setattr("app.services.ai_service.ActivitiesService", FakeActivitiesService)
+    monkeypatch.setattr("app.services.ai_service.UserService", FakeUserService)
+
+    service = AIService()
+    service.client = None
+
+    result = asyncio.run(
+        service.suggest_activity(
+            "trip-1",
+            "Based on the following interests: Foodie",
+            {"uid": "adult-1", "role": "admin"},
+        )
+    )
+
+    suggestions = result["suggestions"]
+    assert len(suggestions) > 0
+    assert suggestions[0]["title"] == "Family food crawl in Cape Cod"
+    assert suggestions[0]["category"] == "Dining"
+    assert json.loads(result["text"])[0]["title"] == "Family food crawl in Cape Cod"
