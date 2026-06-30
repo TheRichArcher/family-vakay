@@ -132,6 +132,19 @@ async def upload_cover_direct(
 
         # Always generate a short, safe server-side name to avoid client-supplied
         # filenames that may contain data URIs or excessively long strings.
+        def _infer_content_type_from_name(file_name: str | None) -> str | None:
+            extension = (file_name or "").rsplit(".", 1)[-1].lower() if "." in (file_name or "") else ""
+            if extension in {"jpg", "jpeg"}:
+                return "image/jpeg"
+            if extension == "png":
+                return "image/png"
+            if extension == "webp":
+                return "image/webp"
+            return None
+
+        if content_type in {"application/octet-stream", "binary/octet-stream"}:
+            content_type = _infer_content_type_from_name(file.filename) or content_type
+
         def _ext_for_content_type(ct: str) -> str:
             if ct.startswith("image/jpeg"):
                 return "jpg"

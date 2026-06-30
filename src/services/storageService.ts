@@ -11,8 +11,22 @@ async function uriToBlob(uri: string): Promise<Blob> {
 }
 
 export const generateUniqueFileName = (uri: string): string => {
-  const fileExtension = uri.split('.').pop();
+  const cleanUri = uri.split('?')[0].split('#')[0];
+  const rawExtension = cleanUri.split('.').pop()?.toLowerCase();
+  const fileExtension = ['jpg', 'jpeg', 'png', 'webp'].includes(rawExtension || '') ? rawExtension : 'jpg';
   return `${uuidv4()}.${fileExtension}`;
+};
+
+const inferImageContentType = (fileName: string, blobType?: string): string => {
+  const normalizedBlobType = (blobType || '').toLowerCase();
+  if (['image/jpeg', 'image/png', 'image/webp'].includes(normalizedBlobType)) {
+    return normalizedBlobType;
+  }
+
+  const extension = fileName.split('.').pop()?.toLowerCase();
+  if (extension === 'png') return 'image/png';
+  if (extension === 'webp') return 'image/webp';
+  return 'image/jpeg';
 };
 
 export const storageService = {
@@ -78,7 +92,8 @@ export const storageService = {
   async uploadViaBackendDirect(localUri: string, fileName: string, tripId?: string): Promise<{ image_path: string; download_token: string; resized_path?: string | null; thumbnail_path?: string | null }> {
     const response = await fetch(localUri);
     const blob = await response.blob();
-    const file = new File([blob], fileName, { type: blob.type || 'application/octet-stream' });
+    const contentType = inferImageContentType(fileName, blob.type);
+    const file = new File([blob], fileName, { type: contentType });
     const { tripsService } = await import('./trips');
     return await tripsService.uploadCoverDirect(file, tripId);
   },
