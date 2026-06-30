@@ -89,6 +89,8 @@ describe('CreateTripScreen', () => {
           name: 'Test Trip',
           description: 'A fun trip',
           location: 'Test Location',
+          startDate: '2026-07-05',
+          endDate: '2026-07-05',
           budget: 2500,
           ownerId: 'test-user-id',
           participants: ['u1', 'test-user-id'],

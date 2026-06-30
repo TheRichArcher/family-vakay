@@ -25,15 +25,72 @@ interface TripFormProps {
   isLoading?: boolean;
 }
 
-// Re-triggering deployment with a comment
+const DEFAULT_TRIP_DATE = new Date(2026, 6, 5);
+
+const parseDateValue = (value?: string) => {
+  if (!value) {
+    return new Date(DEFAULT_TRIP_DATE);
+  }
+
+  const [year, month, day] = value.split('-').map(Number);
+  if (!year || !month || !day) {
+    return new Date(DEFAULT_TRIP_DATE);
+  }
+
+  return new Date(year, month - 1, day);
+};
+
+const formatToYYYYMMDD = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const formatToUSDate = (date: Date) => {
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const year = date.getFullYear();
+  return `${month}-${day}-${year}`;
+};
+
+const parseUSDateInput = (value: string) => {
+  const trimmed = value.trim();
+  const usMatch = trimmed.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+  const isoMatch = trimmed.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+
+  const parts = usMatch
+    ? { month: Number(usMatch[1]), day: Number(usMatch[2]), year: Number(usMatch[3]) }
+    : isoMatch
+      ? { month: Number(isoMatch[2]), day: Number(isoMatch[3]), year: Number(isoMatch[1]) }
+      : null;
+
+  if (!parts || parts.month < 1 || parts.month > 12 || parts.day < 1 || parts.day > 31) {
+    return undefined;
+  }
+
+  const parsed = new Date(parts.year, parts.month - 1, parts.day);
+  if (
+    parsed.getFullYear() !== parts.year ||
+    parsed.getMonth() !== parts.month - 1 ||
+    parsed.getDate() !== parts.day
+  ) {
+    return undefined;
+  }
+
+  return parsed;
+};
+
 export function TripForm({ initialValues, onSubmit, onCancel, isLoading: externalLoading }: TripFormProps) {
   const { user } = useAuth();
   const [name, setName] = useState(initialValues?.name || '');
   const [description, setDescription] = useState(initialValues?.description || '');
   const [location, setLocation] = useState(initialValues?.location || '');
   const [budget, setBudget] = useState(initialValues?.budget?.toString() || '');
-  const [startDate, setStartDate] = useState(initialValues?.startDate ? new Date(`${initialValues.startDate}T00:00:00`) : new Date());
-  const [endDate, setEndDate] = useState(initialValues?.endDate ? new Date(`${initialValues.endDate}T00:00:00`) : new Date());
+  const [startDate, setStartDate] = useState(parseDateValue(initialValues?.startDate));
+  const [endDate, setEndDate] = useState(parseDateValue(initialValues?.endDate));
+  const [startDateInput, setStartDateInput] = useState(formatToUSDate(parseDateValue(initialValues?.startDate)));
+  const [endDateInput, setEndDateInput] = useState(formatToUSDate(parseDateValue(initialValues?.endDate)));
   const [status, setStatus] = useState<Trip['status']>(initialValues?.status || 'upcoming');
   const initialTripType = initialValues?.tripType === 'cruise' ? 'multiLocation' : (initialValues?.tripType || 'standard');
   const [tripType, setTripType] = useState<'standard' | 'multiLocation'>(initialTripType as 'standard' | 'multiLocation');
@@ -135,13 +192,6 @@ export function TripForm({ initialValues, onSubmit, onCancel, isLoading: externa
     setSelectedParticipants(prev =>
       prev.includes(uid) ? prev.filter(id => id !== uid) : [...prev, uid]
     );
-  };
-
-  const formatToYYYYMMDD = (date: Date) => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
   };
 
   const addItineraryStop = () => {
@@ -253,8 +303,10 @@ export function TripForm({ initialValues, onSubmit, onCancel, isLoading: externa
     if (selectedDate) {
       const newDate = new Date(selectedDate);
       setStartDate(newDate);
+      setStartDateInput(formatToUSDate(newDate));
       if (newDate > endDate) {
         setEndDate(newDate);
+        setEndDateInput(formatToUSDate(newDate));
       }
     }
   };
@@ -264,12 +316,15 @@ export function TripForm({ initialValues, onSubmit, onCancel, isLoading: externa
     if (selectedDate) {
       const newDate = new Date(selectedDate);
       setEndDate(newDate);
+      setEndDateInput(formatToUSDate(newDate));
     }
   };
 
   const renderDatePicker = (
     show: boolean,
     value: Date,
+    inputValue: string,
+    setInputValue: React.Dispatch<React.SetStateAction<string>>,
     onChange: (event: any, date?: Date) => void,
     showPickerSetter: React.Dispatch<React.SetStateAction<boolean>>,
     minimumDate?: Date
@@ -277,16 +332,28 @@ export function TripForm({ initialValues, onSubmit, onCancel, isLoading: externa
     if (Platform.OS === 'web') {
       return (
         <View style={styles.dateInputContainer}>
-          <input
-            type="date"
-            value={value.toISOString().split('T')[0]}
-            onChange={(e) => {
-              const [year, month, day] = e.target.value.split('-').map(Number);
-              const newDate = new Date(year, month - 1, day);
-              onChange({}, newDate);
-            }}
-            min={minimumDate?.toISOString().split('T')[0]}
+          <TextInput
             style={styles.webDateInput}
+            value={inputValue}
+            onChangeText={(text) => {
+              setInputValue(text);
+              const parsedDate = parseUSDateInput(text);
+              if (parsedDate) {
+                const nextDate = minimumDate && parsedDate < minimumDate ? minimumDate : parsedDate;
+                onChange({}, nextDate);
+                if (nextDate !== parsedDate) {
+                  setInputValue(formatToUSDate(nextDate));
+                }
+              }
+            }}
+            onBlur={() => {
+              if (!parseUSDateInput(inputValue)) {
+                setInputValue(formatToUSDate(value));
+              }
+            }}
+            placeholder="MM-DD-YYYY"
+            keyboardType="numbers-and-punctuation"
+            editable={!isLoading}
           />
         </View>
       );
@@ -299,7 +366,7 @@ export function TripForm({ initialValues, onSubmit, onCancel, isLoading: externa
           onPress={() => showPickerSetter(true)}
         >
           <Text style={styles.dateInputText}>
-            {value.toLocaleDateString()}
+            {formatToUSDate(value)}
           </Text>
         </TouchableOpacity>
         {show && (
@@ -533,10 +600,10 @@ export function TripForm({ initialValues, onSubmit, onCancel, isLoading: externa
           </View>
 
           <Text style={styles.label}>Start Date</Text>
-          {renderDatePicker(showStartDatePicker, startDate, handleStartDateChange, setShowStartDatePicker)}
+          {renderDatePicker(showStartDatePicker, startDate, startDateInput, setStartDateInput, handleStartDateChange, setShowStartDatePicker)}
 
           <Text style={styles.label}>End Date</Text>
-          {renderDatePicker(showEndDatePicker, endDate, handleEndDateChange, setShowEndDatePicker, startDate)}
+          {renderDatePicker(showEndDatePicker, endDate, endDateInput, setEndDateInput, handleEndDateChange, setShowEndDatePicker, startDate)}
 
           {initialValues && (
             <>
