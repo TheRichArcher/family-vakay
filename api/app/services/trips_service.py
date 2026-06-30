@@ -258,8 +258,8 @@ class TripsService:
         raise ValueError("Trip not found")
 
     async def create_trip(self, trip_data: schemas.TripCreate, current_user: dict) -> schemas.Trip:
-        if current_user.get("role") != "admin":
-            raise PermissionError("Only an admin can create a trip.")
+        if current_user.get("role") == schemas.UserRole.KID:
+            raise PermissionError("Kid accounts cannot create trips.")
 
         user_service = UserService()
         user_id = current_user['uid']

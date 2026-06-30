@@ -20,7 +20,7 @@ jest.mock('@react-navigation/native', () => {
 // Mock useAuth to provide a logged-in user
 jest.mock('../contexts/AuthContext', () => ({
   useAuth: () => ({
-    user: { uid: 'user-1', displayName: 'Test User', name: 'Test User' },
+    user: { uid: 'user-1', displayName: 'Test User', name: 'Test User', role: 'member' },
     authInitializing: false,
     refreshUser: jest.fn(),
   }),
@@ -41,6 +41,7 @@ describe('TripsScreen', () => {
   it('loads trips and renders list', async () => {
     const { getByText, queryByText } = render(<TripsScreen />);
     await waitFor(() => expect(queryByText('My Trips')).toBeTruthy());
+    expect(getByText('New Trip')).toBeTruthy();
     await waitFor(() => expect(getByText('Trip One')).toBeTruthy());
   });
 
@@ -60,5 +61,4 @@ describe('TripsScreen', () => {
     await waitFor(() => expect(tripsService.updateTrip).toHaveBeenCalled());
   });
 });
-
 

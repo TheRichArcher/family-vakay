@@ -58,8 +58,8 @@ def test_create_trip_uses_firestore_add_document_reference(monkeypatch):
 
     class FakeUserService:
         async def get_user_profile(self, user_id):
-            assert user_id == "admin-1"
-            return {"uid": user_id, "familyId": "fam-1", "role": "admin"}
+            assert user_id == "member-1"
+            return {"uid": user_id, "familyId": "fam-1", "role": "member"}
 
         async def update_user_profile(self, user_id, data):
             profile_updates.append((user_id, data))
@@ -77,12 +77,29 @@ def test_create_trip_uses_firestore_add_document_reference(monkeypatch):
                 location="Cape Cod",
                 participants=["kid-1"],
             ),
-            {"uid": "admin-1", "role": "admin"},
+            {"uid": "member-1", "role": "member"},
         )
     )
 
     assert trip.id == "trip-1"
-    assert created_data["ownerId"] == "admin-1"
-    assert set(created_data["participants"]) == {"admin-1", "kid-1"}
-    assert {user_id for user_id, _data in profile_updates} == {"admin-1", "kid-1"}
+    assert created_data["ownerId"] == "member-1"
+    assert set(created_data["participants"]) == {"member-1", "kid-1"}
+    assert {user_id for user_id, _data in profile_updates} == {"member-1", "kid-1"}
 
+
+def test_create_trip_rejects_kid_accounts():
+    trip = TripCreate(
+        name="Beach",
+        description="Summer trip",
+        startDate="2026-07-01",
+        endDate="2026-07-05",
+        location="Cape Cod",
+        participants=["kid-1"],
+    )
+
+    try:
+        asyncio.run(TripsService().create_trip(trip, {"uid": "kid-1", "role": "kid"}))
+    except PermissionError as error:
+        assert "Kid accounts cannot create trips" in str(error)
+    else:
+        raise AssertionError("Expected kid account trip creation to be rejected")

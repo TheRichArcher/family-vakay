@@ -29,7 +29,7 @@ type TripsNavigationProp = CompositeNavigationProp<
 export default function TripsScreen() {
   const { user, authInitializing, refreshUser } = useAuth();
   const navigation = useNavigation<TripsNavigationProp>();
-  const isAdmin = user?.role === 'admin';
+  const canCreateTrips = user?.role !== 'kid';
   const [trips, setTrips] = useState<Trip[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isJoinModalVisible, setJoinModalVisible] = useState(false);
@@ -160,7 +160,7 @@ export default function TripsScreen() {
       <ScreenHeader title="Welcome, Back!" background="band" />
 
       <View style={styles.card}>
-        {isAdmin && (
+        {canCreateTrips && (
           <>
             <TouchableOpacity style={styles.actionButton} onPress={() => navigation.navigate('CreateTrip')}>
               <Ionicons name="add-circle-outline" size={32} color={colors.primary} style={styles.actionButtonIcon} />
