@@ -91,7 +91,7 @@ describe('CreateTripScreen', () => {
           location: 'Test Location',
           budget: 2500,
           ownerId: 'test-user-id',
-          participants: ['u1'],
+          participants: ['u1', 'test-user-id'],
           coverImageUrl: undefined,
           coverImageResizedUrl: undefined,
           coverImageThumbnailUrl: undefined,
@@ -102,7 +102,13 @@ describe('CreateTripScreen', () => {
     expect(tripsService.updateTrip).not.toHaveBeenCalled();
 
     await waitFor(() => {
-      expect(mockGoBack).toHaveBeenCalled();
+      expect(mockNavigate).toHaveBeenCalledWith('App', {
+        screen: 'Trips',
+        params: {
+          screen: 'TripDetail',
+          params: { tripId: 'new-trip-id' },
+        },
+      });
     });
   });
 

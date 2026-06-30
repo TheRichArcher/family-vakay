@@ -17,6 +17,16 @@ export default function CreateTripScreen() {
   const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const openCreatedTrip = (tripId: string) => {
+    (navigation as any).navigate('App', {
+      screen: 'Trips',
+      params: {
+        screen: 'TripDetail',
+        params: { tripId },
+      },
+    });
+  };
+
   const returnToTrips = () => {
     if (navigation.canGoBack()) {
       navigation.goBack();
@@ -45,25 +55,23 @@ export default function CreateTripScreen() {
       };
 
       const createdTrip = await tripsService.createTrip(initialTripData, user.uid);
+      openCreatedTrip(createdTrip.id);
 
       if (newCoverImageUri) {
-        try {
-          const imageName = generateUniqueFileName(newCoverImageUri);
-          const finalize = await storageService.uploadViaBackendDirect(newCoverImageUri, imageName, createdTrip.id);
-          await tripsService.updateTrip(createdTrip.id, {
-            coverImageUrl: finalize.image_path,
-            coverImageResizedUrl: finalize.resized_path || undefined,
-            coverImageThumbnailUrl: finalize.thumbnail_path || undefined,
-          });
-        } catch (coverError) {
-          console.error('Trip was created, but cover upload failed:', coverError);
-          Alert.alert(
-            'Trip Created',
-            'Your trip was saved, but the cover image could not be uploaded. You can edit the trip and try the image again.'
-          );
-        }
+        void (async () => {
+          try {
+            const imageName = generateUniqueFileName(newCoverImageUri);
+            const finalize = await storageService.uploadViaBackendDirect(newCoverImageUri, imageName, createdTrip.id);
+            await tripsService.updateTrip(createdTrip.id, {
+              coverImageUrl: finalize.image_path,
+              coverImageResizedUrl: finalize.resized_path || undefined,
+              coverImageThumbnailUrl: finalize.thumbnail_path || undefined,
+            });
+          } catch (coverError) {
+            console.error('Trip was created, but cover upload failed:', coverError);
+          }
+        })();
       }
-      returnToTrips();
     } catch (error) {
       console.error('Failed to create trip:', error);
       const detail = (error as any)?.response?.data?.detail || (error as Error)?.message;

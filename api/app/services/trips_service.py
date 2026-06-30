@@ -336,9 +336,19 @@ class TripsService:
                 )
 
         trip_doc = await trip_ref.get()
-        created_trip = trip_doc.to_dict()
+        created_trip = trip_doc.to_dict() if trip_doc.exists else dict(new_trip_data)
         created_trip['id'] = trip_ref.id
-        return schemas.Trip.model_validate(created_trip)
+        try:
+            return schemas.Trip.model_validate(created_trip)
+        except ValidationError:
+            logging.warning(
+                "Created trip document failed read-back validation; returning normalized write payload",
+                extra={"trip_id": trip_ref.id},
+                exc_info=True,
+            )
+            fallback_trip = dict(new_trip_data)
+            fallback_trip['id'] = trip_ref.id
+            return schemas.Trip.model_validate(fallback_trip)
 
     async def update_trip(self, trip_id: str, trip_update: schemas.TripUpdate, current_user: dict) -> schemas.Trip:
         user_service = UserService()

@@ -177,6 +177,8 @@ export function TripForm({ initialValues, onSubmit, onCancel, isLoading: externa
       return `${year}-${month}-${day}`;
     };
 
+    const participants = Array.from(new Set([...selectedParticipants, user.uid]));
+
     const tripData: TripData = {
       name,
       description,
@@ -184,7 +186,7 @@ export function TripForm({ initialValues, onSubmit, onCancel, isLoading: externa
       startDate: formatToYYYYMMDD(startDate),
       endDate: formatToYYYYMMDD(endDate),
       status,
-      participants: selectedParticipants,
+      participants,
       ownerId: user.uid,
       coverImageUrl: coverImageLocalUri,
     };
