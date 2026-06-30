@@ -44,7 +44,7 @@ export default function CreateTripScreen() {
         coverImageResizedToSave = finalize.resized_path || undefined;
         coverImageThumbToSave = finalize.thumbnail_path || undefined;
       }
-      
+
       const finalTripData: TripData = {
         ...tripFormData,
         coverImageUrl: coverImageUrlToSave,
@@ -56,7 +56,8 @@ export default function CreateTripScreen() {
       navigation.goBack();
     } catch (error) {
       console.error('Failed to create trip:', error);
-      Alert.alert('Error', 'Failed to create trip. Please try again.');
+      const detail = (error as any)?.response?.data?.detail || (error as Error)?.message;
+      Alert.alert('Error', detail || 'Failed to create trip. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -92,4 +93,4 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: colors.background,
   },
-}); 
+});

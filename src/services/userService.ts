@@ -6,6 +6,7 @@ export interface UserProfile {
   name: string;
   role: 'admin' | 'member' | 'kid';
   familyId?: string;
+  family_id?: string;
   isKid: boolean;
   pin?: string;
   pinHash?: string;
@@ -27,11 +28,16 @@ export interface AdminStats {
   pending_requests: number;
 }
 
+const normalizeUserProfile = (profile: UserProfile): UserProfile => ({
+  ...profile,
+  familyId: profile.familyId || profile.family_id,
+});
+
 export const userService = {
   async getUserProfile(uid: string): Promise<UserProfile | null> {
     try {
       const response = await apiClient.get(`/api/v1/users/${uid}`);
-      return response.data;
+      return normalizeUserProfile(response.data);
     } catch (error) {
       console.error('Failed to fetch user profile:', error);
       // It might be a 404, which is a valid case (profile not created yet)
@@ -40,20 +46,20 @@ export const userService = {
   },
 
   async createUserProfile(uid: string, profileDetails: { name?: string, email?: string, role?: 'admin' | 'member' | 'kid' }, familyId?: string): Promise<UserProfile> {
-    const profileData = { 
-      name: profileDetails.name, 
+    const profileData = {
+      name: profileDetails.name,
       email: profileDetails.email,
-      role: profileDetails.role || 'member', 
-      isKid: false, 
-      familyId 
+      role: profileDetails.role || 'member',
+      isKid: false,
+      familyId
     };
     const response = await apiClient.put(`/api/v1/users/${uid}`, profileData);
-    return response.data;
+    return normalizeUserProfile(response.data);
   },
 
   async createKidProfile(name: string, pin: string, age: number | null): Promise<UserProfile> {
     const response = await apiClient.post('/api/v1/users/kid', { name, pin, age });
-    return response.data;
+    return normalizeUserProfile(response.data);
   },
 
   async updateUserProfile(uid:string, profileData: Partial<UserProfile>): Promise<void> {
@@ -66,7 +72,7 @@ export const userService = {
 
   async getFamilyMembers(familyId: string): Promise<UserProfile[]> {
     const response = await apiClient.get(`/api/v1/family/${familyId}/members`);
-    return response.data;
+    return response.data.map(normalizeUserProfile);
   },
 
   async getUsersByIds(userIds: string[]): Promise<UserProfile[]> {
@@ -75,7 +81,7 @@ export const userService = {
     }
     try {
       const response = await apiClient.post('/api/v1/users/batch', { user_ids: userIds });
-      return response.data;
+      return response.data.map(normalizeUserProfile);
     } catch (error) {
       console.error('Failed to fetch users by IDs:', error);
       return []; // Return empty array on error to prevent crashes
@@ -97,7 +103,7 @@ export const userService = {
     const code = Math.random().toString(36).substring(2, 8).toUpperCase();
     return code;
   },
-  
+
   async validateFamilyCode(code: string): Promise<{ valid: boolean; familyId?: string }> {
     try {
       await apiClient.post('/api/v1/family/validate', { familyId: code });
@@ -136,4 +142,4 @@ export const userService = {
     const response = await apiClient.get('/api/v1/users/stats');
     return response.data;
   },
-}; 
+};

@@ -65,13 +65,24 @@ export function TripForm({ initialValues, onSubmit, onCancel, isLoading: externa
 
   useEffect(() => {
     const fetchTripParticipants = async () => {
-      if (user?.familyId) {
+      if (user?.uid) {
         try {
+          const familyId = user.familyId || (user as any).family_id;
           // 1. Get all participant UIDs from the trip object. This is the source of truth.
           const tripParticipantIds = initialValues?.participants || [];
 
           // 2. Fetch all family members to display the full list of potential participants.
-          const family = await userService.getFamilyMembers(user.familyId);
+          const fallbackCurrentUser = {
+            uid: user.uid,
+            name: user.name || user.email || 'Me',
+            email: user.email || undefined,
+            role: user.role || 'member',
+            familyId,
+            isKid: user.role === 'kid',
+          } as UserProfile;
+          const family = familyId
+            ? await userService.getFamilyMembers(familyId)
+            : [fallbackCurrentUser];
           // 3. Fetch profiles for ALL participants on the trip.
           const participantProfiles = tripParticipantIds.length > 0
             ? await userService.getUsersByIds(tripParticipantIds)
@@ -89,7 +100,8 @@ export function TripForm({ initialValues, onSubmit, onCancel, isLoading: externa
 
           // If this is a new trip, pre-select all family members.
           if (!initialValues) {
-            setSelectedParticipants(family.map(m => m.uid));
+            const participantIds = family.map(m => m.uid);
+            setSelectedParticipants(participantIds.length > 0 ? participantIds : [user.uid]);
           } else {
             // For an existing trip, ensure the selection matches the actual participants.
             setSelectedParticipants(tripParticipantIds);
@@ -97,12 +109,24 @@ export function TripForm({ initialValues, onSubmit, onCancel, isLoading: externa
 
         } catch (error) {
           console.error("Failed to fetch trip participants:", error);
-          Alert.alert("Error", "Could not load trip participant information.");
+          if (!initialValues) {
+            setAllParticipants([{
+              uid: user.uid,
+              name: user.name || user.email || 'Me',
+              email: user.email || undefined,
+              role: user.role || 'member',
+              familyId: user.familyId || (user as any).family_id,
+              isKid: user.role === 'kid',
+            } as UserProfile]);
+            setSelectedParticipants([user.uid]);
+          } else {
+            Alert.alert("Error", "Could not load trip participant information.");
+          }
         }
       }
     };
     fetchTripParticipants();
-  }, [user?.familyId, initialValues]);
+  }, [user?.uid, user?.familyId, (user as any)?.family_id, initialValues]);
 
   const toggleParticipant = (uid: string) => {
     setSelectedParticipants(prev =>
