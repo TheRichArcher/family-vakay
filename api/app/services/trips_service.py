@@ -302,12 +302,28 @@ class TripsService:
         
         # Firestore add() returns (update_time, DocumentReference). We need the reference.
         _update_time, trip_ref = await self.trips_collection.add(new_trip_data)
+        logging.info(
+            "Created trip document",
+            extra={
+                "trip_id": trip_ref.id,
+                "owner_id": user_id,
+                "family_id": family_id,
+                "participant_count": len(participants),
+            },
+        )
         
         # After creating the trip, update the participants' user profiles
         for participant_id in participants:
-            await user_service.update_user_profile(participant_id, {
-                'trip_ids': firestore.ArrayUnion([trip_ref.id])
-            })
+            try:
+                await user_service.update_user_profile(participant_id, {
+                    'trip_ids': firestore.ArrayUnion([trip_ref.id])
+                })
+            except Exception:
+                logging.warning(
+                    "Failed to attach trip to participant profile",
+                    extra={"trip_id": trip_ref.id, "participant_id": participant_id},
+                    exc_info=True,
+                )
 
         trip_doc = await trip_ref.get()
         created_trip = trip_doc.to_dict()

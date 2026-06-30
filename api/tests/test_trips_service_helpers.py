@@ -87,6 +87,63 @@ def test_create_trip_uses_firestore_add_document_reference(monkeypatch):
     assert {user_id for user_id, _data in profile_updates} == {"member-1", "kid-1"}
 
 
+def test_create_trip_still_returns_when_participant_profile_update_fails(monkeypatch):
+    created_data = {}
+
+    class FakeSnapshot:
+        exists = True
+        id = "trip-1"
+
+        def to_dict(self):
+            return {
+                **created_data,
+                "id": "trip-1",
+            }
+
+    class FakeDocumentRef:
+        id = "trip-1"
+
+        async def get(self):
+            return FakeSnapshot()
+
+    class FakeTripsCollection:
+        async def add(self, data):
+            created_data.update(data)
+            return SimpleNamespace(seconds=1), FakeDocumentRef()
+
+    class FakeDB:
+        def collection(self, name):
+            assert name == "trips"
+            return FakeTripsCollection()
+
+    class FakeUserService:
+        async def get_user_profile(self, user_id):
+            return {"uid": user_id, "familyId": "fam-1", "role": "member"}
+
+        async def update_user_profile(self, user_id, data):
+            raise RuntimeError("profile update failed")
+
+    monkeypatch.setattr("app.services.trips_service.get_async_firestore_client", lambda: FakeDB())
+    monkeypatch.setattr("app.services.trips_service.UserService", lambda: FakeUserService())
+
+    trip = asyncio.run(
+        TripsService().create_trip(
+            TripCreate(
+                name="Beach",
+                description="Summer trip",
+                startDate="2026-07-01",
+                endDate="2026-07-05",
+                location="Cape Cod",
+                participants=["kid-1"],
+            ),
+            {"uid": "member-1", "role": "member"},
+        )
+    )
+
+    assert trip.id == "trip-1"
+    assert created_data["ownerId"] == "member-1"
+
+
 def test_create_trip_rejects_kid_accounts():
     trip = TripCreate(
         name="Beach",
