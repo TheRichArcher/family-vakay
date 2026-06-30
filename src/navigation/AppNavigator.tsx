@@ -31,6 +31,7 @@ import AdminManageTripsScreen from '../screens/AdminManageTripsScreen';
 import AdminScavengerHuntScreen from '../screens/AdminScavengerHuntScreen';
 import AdminManageTripActivitiesScreen from '../screens/AdminManageTripActivitiesScreen';
 import ActivitySuggestionScreen from '../screens/ActivitySuggestionScreen';
+import RewardsStoreScreen from '../screens/RewardsStoreScreen';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import * as Linking from 'expo-linking';
@@ -63,6 +64,7 @@ export type KidDashboardStackParamList = {
   BedtimeStory: { tripId: string };
   Leaderboard: { tripId: string };
   ScavengerHunt: { tripId: string };
+  RewardsStore: undefined;
 };
 
 export type FamilyStackParamList = {
@@ -75,6 +77,7 @@ export type AdminStackParamList = {
   AdminManageTrips: undefined;
   CreateTrip: undefined;
   AdminScavengerHunt: undefined;
+  RewardsStore: undefined;
   AdminManageTripActivities: { tripId: string };
   CreateActivity: { tripId: string };
   EditActivity: { activity: Activity };
@@ -152,6 +155,7 @@ const KidDashboardNavigator = () => (
     <KidDashboardStack.Screen name="BedtimeStory" component={BedtimeStoryScreen} options={{ title: 'Bedtime Story Creator' }} />
     <KidDashboardStack.Screen name="Leaderboard" component={LeaderboardScreen} options={{ title: 'Leaderboard' }} />
     <KidDashboardStack.Screen name="ScavengerHunt" component={ScavengerHuntScreen} options={{ title: 'Scavenger Hunt' }} />
+    <KidDashboardStack.Screen name="RewardsStore" component={RewardsStoreScreen} options={{ title: 'Rewards Store' }} />
   </KidDashboardStack.Navigator>
 );
 
@@ -168,6 +172,7 @@ const AdminStack = () => (
     <AdminStackNav.Screen name="AdminManageTrips" component={AdminManageTripsScreen} options={{ title: 'Manage Trips' }} />
     <AdminStackNav.Screen name="CreateTrip" component={CreateTripScreen} options={{ title: 'Create a New Trip' }} />
     <AdminStackNav.Screen name="AdminScavengerHunt" component={AdminScavengerHuntScreen} options={{ title: 'Scavenger Hunt' }} />
+    <AdminStackNav.Screen name="RewardsStore" component={RewardsStoreScreen} options={{ title: 'Rewards Store' }} />
     <AdminStackNav.Screen name="AdminManageTripActivities" component={AdminManageTripActivitiesScreen} options={{ title: 'Manage Activities' }} />
     <AdminStackNav.Screen name="CreateActivity" component={CreateActivityScreen} options={{ title: 'Add an Activity' }} />
     <AdminStackNav.Screen name="EditActivity" component={EditActivityScreen} options={{ title: 'Edit Activity' }} />

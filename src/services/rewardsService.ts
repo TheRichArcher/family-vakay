@@ -1,5 +1,5 @@
 import apiClient from "../utils/apiClient";
-import { Reward, RewardCreate, RewardUpdate } from "../types/rewards";
+import { Reward, RewardCreate, RewardRedemption, RewardRedemptionStatus, RewardUpdate } from "../types/rewards";
 
 export const rewardsService = {
   async getRewards(): Promise<Reward[]> {
@@ -21,8 +21,18 @@ export const rewardsService = {
     await apiClient.delete(`/api/v1/rewards/${rewardId}`);
   },
 
-  async redeemReward(rewardId: string): Promise<Reward> {
-    const response = await apiClient.post<Reward>(`/api/v1/rewards/${rewardId}/redeem`);
+  async redeemReward(rewardId: string): Promise<RewardRedemption> {
+    const response = await apiClient.post<RewardRedemption>(`/api/v1/rewards/${rewardId}/redeem`);
+    return response.data;
+  },
+
+  async getRedemptions(): Promise<RewardRedemption[]> {
+    const response = await apiClient.get<RewardRedemption[]>('/api/v1/rewards/redemptions');
+    return response.data;
+  },
+
+  async updateRedemption(redemptionId: string, status: RewardRedemptionStatus, note?: string): Promise<RewardRedemption> {
+    const response = await apiClient.put<RewardRedemption>(`/api/v1/rewards/redemptions/${redemptionId}`, { status, note });
     return response.data;
   }
-}; 
+};

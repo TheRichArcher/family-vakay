@@ -50,6 +50,15 @@ export default function KidsDashboardScreen() {
     <ScrollView style={styles.container}>
       <Text style={styles.title}>Welcome, {user?.displayName || 'Explorer'}!</Text>
 
+      <TouchableOpacity style={styles.rewardsButton} onPress={() => navigation.navigate('RewardsStore')}>
+        <Ionicons name="gift-outline" size={26} color={colors.textLight} style={styles.rewardsButtonIcon} />
+        <View style={styles.rewardsButtonTextWrap}>
+          <Text style={styles.rewardsButtonTitle}>Rewards Store</Text>
+          <Text style={styles.rewardsButtonText}>{user?.points || 0} points to spend</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={22} color={colors.textLight} />
+      </TouchableOpacity>
+
       <Text style={styles.tripsTitle}>My Trips</Text>
       {trips.length > 0 ? (
         trips.map((item) => (
@@ -113,6 +122,29 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.85)',
     marginTop: 2,
   },
+  rewardsButton: {
+    backgroundColor: colors.primary,
+    borderRadius: 8,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+    marginHorizontal: 10,
+  },
+  rewardsButtonIcon: {
+    marginRight: 14,
+  },
+  rewardsButtonTextWrap: {
+    flex: 1,
+  },
+  rewardsButtonTitle: {
+    ...typography.h3,
+    color: colors.textLight,
+  },
+  rewardsButtonText: {
+    ...typography.body,
+    color: 'rgba(255, 255, 255, 0.85)',
+  },
   tripsTitle: {
     ...typography.h3,
     color: colors.text,
@@ -170,4 +202,4 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-}); 
+});

@@ -82,6 +82,10 @@ const AdminDashboardScreen = () => {
             <Ionicons name="search-outline" size={28} color={colors.primary} />
             <Text style={styles.menuItemText}>Scavenger Hunt</Text>
           </TouchableOpacity>
+          <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('RewardsStore')}>
+            <Ionicons name="gift-outline" size={28} color={colors.primary} />
+            <Text style={styles.menuItemText}>Rewards Store</Text>
+          </TouchableOpacity>
           <TouchableOpacity style={styles.menuItem} onPress={() => Alert.alert('Coming Soon!', 'This feature is not yet available.')}>
             <Ionicons name="analytics-outline" size={28} color={colors.primary} />
             <Text style={styles.menuItemText}>View Analytics</Text>
@@ -167,4 +171,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default AdminDashboardScreen; 
+export default AdminDashboardScreen;

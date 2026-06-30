@@ -39,6 +39,12 @@ class ChallengeStatus(str, Enum):
     REJECTED = 'rejected'
     ERROR = 'error'
 
+class RewardRedemptionStatus(str, Enum):
+    REQUESTED = "requested"
+    APPROVED = "approved"
+    FULFILLED = "fulfilled"
+    DENIED = "denied"
+
 class ChallengeCompletion(BaseModel):
     model_config = ConfigDict(populate_by_name=True, extra='allow')
     image_url: Optional[str] = Field(None, alias='imageUrl')
@@ -321,6 +327,7 @@ class RewardBase(BaseModel):
     description: Optional[str] = None
     pointsCost: int
     icon: Optional[str] = None
+    isActive: bool = True
 
 class RewardCreate(RewardBase):
     pass
@@ -331,6 +338,7 @@ class RewardUpdate(BaseModel):
     description: Optional[str] = None
     pointsCost: Optional[int] = None
     icon: Optional[str] = None
+    isActive: Optional[bool] = None
 
 class Reward(RewardBase):
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
@@ -340,6 +348,33 @@ class Reward(RewardBase):
     redeemedBy: Optional[str] = None
     redeemedAt: Optional[datetime] = None
     createdAt: Optional[datetime] = None 
+    updatedAt: Optional[datetime] = None
+
+class RewardRedemptionUpdate(BaseModel):
+    status: RewardRedemptionStatus
+    note: Optional[str] = None
+
+class RewardRedemption(BaseModel):
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+    id: str
+    familyId: str
+    rewardId: str
+    rewardTitle: str
+    rewardDescription: Optional[str] = None
+    pointsCost: int
+    kidId: str
+    kidName: Optional[str] = None
+    status: RewardRedemptionStatus = RewardRedemptionStatus.REQUESTED
+    requestedAt: Optional[datetime] = None
+    updatedAt: Optional[datetime] = None
+    approvedAt: Optional[datetime] = None
+    approvedBy: Optional[str] = None
+    fulfilledAt: Optional[datetime] = None
+    fulfilledBy: Optional[str] = None
+    deniedAt: Optional[datetime] = None
+    deniedBy: Optional[str] = None
+    note: Optional[str] = None
 
 class AdminStats(BaseModel):
     active_trips: int
