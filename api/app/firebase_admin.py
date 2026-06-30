@@ -118,8 +118,8 @@ def initialize_firebase_admin():
                     if d not in desired_origins:
                         desired_origins.append(d)
 
-                desired_methods = ["GET", "HEAD", "OPTIONS"]
-                desired_headers = ["Content-Type", "Authorization"]
+                desired_methods = ["GET", "HEAD", "OPTIONS", "PUT", "POST", "DELETE"]
+                desired_headers = ["Content-Type", "Content-Length", "Authorization", "x-goog-resumable"]
                 desired_max_age = 3600
 
                 # Merge with existing rules without removing unrelated entries
@@ -183,4 +183,4 @@ def get_firestore_client():
 def get_async_firestore_client():
     if not _app_initialized:
         raise ConnectionError("Firebase not initialized. Check server logs for initialization errors.")
-    return firestore_async.client() 
+    return firestore_async.client()

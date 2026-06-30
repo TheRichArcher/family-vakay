@@ -34,11 +34,7 @@ export default function CreateTripScreen() {
 
       if (newCoverImageUri) {
         const imageName = generateUniqueFileName(newCoverImageUri);
-        const fileExt = imageName.split('.').pop()?.toLowerCase() || 'jpg';
-        const contentType = fileExt === 'png' ? 'image/png' : 'image/jpeg';
-        const { signed_url, image_url } = await tripsService.generateCoverUploadUrl(imageName, contentType);
-        await storageService.uploadViaSignedUrl(newCoverImageUri, signed_url, contentType);
-        const finalize = await tripsService.finalizeCoverUpload(image_url);
+        const finalize = await storageService.uploadViaBackendDirect(newCoverImageUri, imageName);
         // Store the storage path; rendering resolves via getDownloadURL at runtime
         coverImageUrlToSave = finalize.image_path;
         coverImageResizedToSave = finalize.resized_path || undefined;
