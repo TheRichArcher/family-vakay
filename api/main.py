@@ -89,7 +89,7 @@ default_origins = [
     "http://localhost:8081",
     "http://localhost:19006",
     # Deployed frontend (Render)
-    "https://family-vk-app-frontend.onrender.com",
+    "https://family-vakay-frontend.onrender.com",
 ]
 
 cors_origins_env = os.getenv("CORS_ORIGINS", "").strip()

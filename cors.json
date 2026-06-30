@@ -4,8 +4,7 @@
       "http://localhost",
       "http://localhost:19006",
       "http://localhost:8081",
-      "https://family-vk-app.onrender.com",
-      "https://family-vk-app-frontend.onrender.com",
+      "https://family-vakay-frontend.onrender.com",
       "capacitor://localhost",
       "ionic://localhost",
       "http://localhost:8100"

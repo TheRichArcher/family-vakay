@@ -52,8 +52,8 @@
       "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "539277137649",
       "EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID": "G-GSML6JD1CG",
       "EXPO_PUBLIC_API_URL": "https://family-vakay-backend.onrender.com",
-      "DEEPLINK_BASE_URL": "https://family-vk-app-frontend.onrender.com",
-      "QR_BASE_URL": "https://family-vk-app-frontend.onrender.com",
+      "DEEPLINK_BASE_URL": "https://family-vakay-frontend.onrender.com",
+      "QR_BASE_URL": "https://family-vakay-frontend.onrender.com",
       "eas": {
         "projectId": "f5e9c5d0-953e-42e5-a36c-2f7810776510"
       }

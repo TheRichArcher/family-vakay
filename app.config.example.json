@@ -6,8 +6,8 @@
     "scheme": "family-vk-app-frontend",
     "extra": {
       "EXPO_PUBLIC_API_URL": "https://api.example.com",
-      "DEEPLINK_BASE_URL": "https://app.example.com",
-      "QR_BASE_URL": "https://app.example.com",
+      "DEEPLINK_BASE_URL": "https://family-vakay-frontend.onrender.com",
+      "QR_BASE_URL": "https://family-vakay-frontend.onrender.com",
       "EXPO_PUBLIC_SENTRY_DSN": "",
       "SENTRY_ENV": "production",
       "EXPO_PUBLIC_FIREBASE_API_KEY": "",

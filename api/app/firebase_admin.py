@@ -104,7 +104,7 @@ def initialize_firebase_admin():
             # --- Ensure CORS configuration allows our frontend origin ---
             try:
                 # Frontend origin(s) to allow. Comma-separated list via env overrides.
-                default_frontend = "https://family-vk-app-frontend.onrender.com"
+                default_frontend = "https://family-vakay-frontend.onrender.com"
                 cors_origins_env = os.getenv("STORAGE_CORS_ORIGINS", default_frontend)
                 desired_origins = [o.strip() for o in cors_origins_env.split(',') if o.strip()]
 
