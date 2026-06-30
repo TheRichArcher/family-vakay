@@ -96,6 +96,7 @@ def test_admin_can_approve_redemption(client, as_admin):
     assert args[0] == "redeem-1"
     assert args[1].status == schemas.RewardRedemptionStatus.APPROVED
     assert args[2] == "admin-1"
+    assert args[3] == "fam-1"
 
 
 def test_kid_cannot_update_redemption(client):

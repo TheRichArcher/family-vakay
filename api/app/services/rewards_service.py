@@ -142,6 +142,7 @@ class RewardsService:
         redemption_id: str,
         update: schemas.RewardRedemptionUpdate,
         actor_id: str,
+        actor_family_id: str,
     ) -> schemas.RewardRedemption:
         new_status = update.status.value if hasattr(update.status, "value") else str(update.status)
         if new_status == schemas.RewardRedemptionStatus.REQUESTED.value:
@@ -157,6 +158,9 @@ class RewardsService:
                 raise LookupError("Redemption not found.")
 
             redemption_data = redemption_doc.to_dict()
+            if redemption_data.get('familyId') != actor_family_id:
+                raise PermissionError("Not authorized to update this redemption.")
+
             current_status = redemption_data.get('status')
             if current_status in {
                 schemas.RewardRedemptionStatus.FULFILLED.value,

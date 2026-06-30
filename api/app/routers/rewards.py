@@ -87,11 +87,16 @@ def update_redemption(
     if current_user.get('role') == schemas.UserRole.KID:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Kids cannot update redemptions.")
 
+    family_id = _family_id(current_user)
+    if not family_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="User does not belong to a family.")
+
     try:
         return rewards_service.update_redemption_status(
             redemption_id,
             redemption_update,
             current_user.get('uid'),
+            family_id,
         )
     except LookupError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
