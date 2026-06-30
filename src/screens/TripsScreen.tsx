@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
-import { 
-  View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, FlatList, 
+import {
+  View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, FlatList,
   TextInput, RefreshControl, Button
 } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
@@ -29,6 +29,7 @@ type TripsNavigationProp = CompositeNavigationProp<
 export default function TripsScreen() {
   const { user, authInitializing, refreshUser } = useAuth();
   const navigation = useNavigation<TripsNavigationProp>();
+  const isAdmin = user?.role === 'admin';
   const [trips, setTrips] = useState<Trip[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isJoinModalVisible, setJoinModalVisible] = useState(false);
@@ -43,7 +44,7 @@ export default function TripsScreen() {
       setIsLoading(false);
       return;
     }
-    
+
     try {
       setIsLoading(true);
       const userTrips = await tripsService.getTrips(user.uid);
@@ -69,7 +70,7 @@ export default function TripsScreen() {
 
       const fetchTrips = async () => {
         if (!user || authInitializing) return;
-        
+
         setIsLoading(true);
         try {
           const fetchedTrips = await tripsService.getTrips(user.uid);
@@ -116,7 +117,7 @@ export default function TripsScreen() {
         setJoinTripError("You're already part of this trip!");
         return;
       }
-      
+
       const updatedParticipants = [...tripToJoin.participants, user.uid];
       await tripsService.updateTrip(tripToJoin.id, { participants: updatedParticipants });
 
@@ -157,8 +158,20 @@ export default function TripsScreen() {
   return (
     <View style={styles.container}>
       <ScreenHeader title="Welcome, Back!" background="band" />
-      
+
       <View style={styles.card}>
+        {isAdmin && (
+          <>
+            <TouchableOpacity style={styles.actionButton} onPress={() => navigation.navigate('CreateTrip')}>
+              <Ionicons name="add-circle-outline" size={32} color={colors.primary} style={styles.actionButtonIcon} />
+              <View>
+                <Text style={styles.actionButtonTitle}>New Trip</Text>
+                <Text style={styles.actionButtonText}>Plan a new vacation for your family.</Text>
+              </View>
+            </TouchableOpacity>
+            <View style={styles.actionDivider} />
+          </>
+        )}
         <TouchableOpacity style={styles.actionButton} onPress={() => setJoinModalVisible(true)}>
           <Ionicons name="people-circle" size={32} color={colors.primary} style={styles.actionButtonIcon} />
           <View>
@@ -179,7 +192,7 @@ export default function TripsScreen() {
           <RefreshControl refreshing={isLoading} onRefresh={loadTrips} tintColor={colors.primary} />
         }
       />
-      
+
       <AccessibleModal
         visible={isJoinModalVisible}
         onClose={() => setJoinModalVisible(false)}
@@ -244,12 +257,12 @@ const styles = StyleSheet.create({
     padding: 20,
     flexDirection: 'row',
     alignItems: 'center',
-    borderTopLeftRadius: 15,
-    borderTopRightRadius: 15,
-    borderBottomLeftRadius: 15,
-    borderBottomRightRadius: 15,
     borderWidth: 1,
     borderColor: colors.border,
+  },
+  actionDivider: {
+    height: 1,
+    backgroundColor: colors.border,
   },
   actionButtonIcon: {
     marginRight: 16,
@@ -381,4 +394,4 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 20,
   }
-}); 
+});
