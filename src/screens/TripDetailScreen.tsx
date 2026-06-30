@@ -576,9 +576,9 @@ export default function TripDetailScreen() {
           </View>
         </View>
 
-        {currentTrip.tripType === 'cruise' && (
+        {(currentTrip.tripType === 'multiLocation' || currentTrip.tripType === 'cruise') && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Cruise Itinerary</Text>
+            <Text style={styles.sectionTitle}>Trip Itinerary</Text>
             {currentTrip.itinerary && currentTrip.itinerary.length > 0 ? (
               <View style={styles.itineraryList}>
                 {currentTrip.itinerary.map((stop, index) => (
@@ -601,7 +601,7 @@ export default function TripDetailScreen() {
                 ))}
               </View>
             ) : (
-              <Text style={styles.emptyMessage}>No cruise stops added yet. Add them from Manage Trips.</Text>
+              <Text style={styles.emptyMessage}>No itinerary stops added yet. Add them from Manage Trips.</Text>
             )}
           </View>
         )}

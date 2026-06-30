@@ -22,6 +22,8 @@ class TripStatus(str, Enum):
 
 class TripType(str, Enum):
     STANDARD = "standard"
+    MULTI_LOCATION = "multiLocation"
+    # Legacy value kept so trips created during the cruise-specific rollout keep loading.
     CRUISE = "cruise"
 
 class ItineraryStopType(str, Enum):

@@ -30,7 +30,7 @@ def test_activity_suggestion_prompt_uses_full_trip_context():
     assert "Beach Day" in prompt
     assert '"suggestions"' in prompt
     assert "Do not duplicate existing saved activities" in prompt
-    assert "Cruise/itinerary rules" in prompt
+    assert "Multi-location/itinerary rules" in prompt
 
 
 def test_suggest_activity_returns_normalized_structured_suggestions(monkeypatch):
@@ -182,36 +182,36 @@ def test_suggest_activity_returns_structured_fallback_when_openai_is_off(monkeyp
     assert json.loads(result["text"])[0]["title"] == "Family food crawl in Cape Cod"
 
 
-def test_suggest_activity_uses_selected_cruise_stop(monkeypatch):
+def test_suggest_activity_uses_selected_multi_location_stop(monkeypatch):
     captured = {}
 
     class FakeTripsService:
         async def get_trip_by_id(self, trip_id, current_user):
             return schemas.Trip(
                 id=trip_id,
-                name="Bahamas Cruise",
-                description="Family cruise",
+                name="Europe City Hop",
+                description="Family multi-city trip",
                 startDate="2026-07-01",
                 endDate="2026-07-07",
-                location="Bahamas",
+                location="Europe",
                 status="upcoming",
                 participants=["adult-1", "kid-1"],
                 ownerId="adult-1",
-                tripType="cruise",
+                tripType="multiLocation",
                 itinerary=[
                     {
-                        "id": "stop-sea",
+                        "id": "stop-travel",
                         "date": "2026-07-02",
                         "type": "sea",
-                        "portName": "At Sea",
+                        "portName": "Train to Paris",
                     },
                     {
-                        "id": "stop-nassau",
+                        "id": "stop-paris",
                         "date": "2026-07-03",
                         "type": "port",
-                        "portName": "Nassau",
-                        "arrivalTime": "08:00",
-                        "departureTime": "17:00",
+                        "portName": "Paris",
+                        "arrivalTime": "09:00",
+                        "departureTime": "20:00",
                     },
                 ],
             )
@@ -232,7 +232,7 @@ def test_suggest_activity_uses_selected_cruise_stop(monkeypatch):
             {
                 "suggestions": [
                     {
-                        "title": "Nassau port snack walk",
+                        "title": "Paris snack walk",
                         "category": "Food",
                         "why": "Fits the port window.",
                         "kidFit": "Best for ages 10+",
@@ -273,15 +273,15 @@ def test_suggest_activity_uses_selected_cruise_stop(monkeypatch):
             "trip-1",
             "Based on the following interests: Foodie",
             {"uid": "adult-1", "role": "admin"},
-            "stop-nassau",
+            "stop-paris",
         )
     )
 
     suggestion = result["suggestions"][0]
-    assert suggestion["itineraryStopId"] == "stop-nassau"
+    assert suggestion["itineraryStopId"] == "stop-paris"
     assert suggestion["itineraryDate"] == "2026-07-03"
-    assert suggestion["portName"] == "Nassau"
+    assert suggestion["portName"] == "Paris"
     prompt = captured["messages"][0]["content"]
-    assert "Nassau on 2026-07-03" in prompt
+    assert "Paris on 2026-07-03" in prompt
     assert "selectedItineraryStop" in prompt
-    assert "08:00" in prompt
+    assert "09:00" in prompt

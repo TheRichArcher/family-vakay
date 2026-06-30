@@ -20,7 +20,7 @@ export interface Trip {
   updatedAt?: string;
   vacationCode?: string;
   scavengerHuntEnabled?: boolean;
-  tripType?: 'standard' | 'cruise';
+  tripType?: 'standard' | 'multiLocation' | 'cruise';
   itinerary?: ItineraryStop[];
 }
 

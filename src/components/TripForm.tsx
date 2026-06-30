@@ -35,7 +35,8 @@ export function TripForm({ initialValues, onSubmit, onCancel, isLoading: externa
   const [startDate, setStartDate] = useState(initialValues?.startDate ? new Date(`${initialValues.startDate}T00:00:00`) : new Date());
   const [endDate, setEndDate] = useState(initialValues?.endDate ? new Date(`${initialValues.endDate}T00:00:00`) : new Date());
   const [status, setStatus] = useState<Trip['status']>(initialValues?.status || 'upcoming');
-  const [tripType, setTripType] = useState<Trip['tripType']>(initialValues?.tripType || 'standard');
+  const initialTripType = initialValues?.tripType === 'cruise' ? 'multiLocation' : (initialValues?.tripType || 'standard');
+  const [tripType, setTripType] = useState<'standard' | 'multiLocation'>(initialTripType as 'standard' | 'multiLocation');
   const [itinerary, setItinerary] = useState<ItineraryStop[]>(initialValues?.itinerary || []);
   const [isSubmittingInternal, setIsSubmittingInternal] = useState(false);
   const [showStartDatePicker, setShowStartDatePicker] = useState(false);
@@ -230,7 +231,7 @@ export function TripForm({ initialValues, onSubmit, onCancel, isLoading: externa
       ownerId: user.uid,
       coverImageUrl: coverImageLocalUri,
       tripType,
-      itinerary: tripType === 'cruise' ? cleanItinerary : [],
+      itinerary: tripType === 'multiLocation' ? cleanItinerary : [],
     };
 
     if (budget) {
@@ -363,7 +364,7 @@ export function TripForm({ initialValues, onSubmit, onCancel, isLoading: externa
 
           <Text style={styles.label}>Trip Type</Text>
           <View style={styles.statusContainer}>
-            {(['standard', 'cruise'] as const).map((type) => (
+            {(['standard', 'multiLocation'] as const).map((type) => (
               <TouchableOpacity
                 key={type}
                 style={[
@@ -380,16 +381,16 @@ export function TripForm({ initialValues, onSubmit, onCancel, isLoading: externa
                     tripType === type && styles.statusButtonTextActive,
                   ]}
                 >
-                  {type === 'standard' ? 'Standard' : 'Cruise'}
+                  {type === 'standard' ? 'Single Location' : 'Multiple Locations'}
                 </Text>
               </TouchableOpacity>
             ))}
           </View>
 
-          {tripType === 'cruise' && (
+          {tripType === 'multiLocation' && (
             <View style={styles.itinerarySection}>
               <View style={styles.itineraryHeader}>
-                <Text style={styles.sectionTitle}>Cruise Itinerary</Text>
+                <Text style={styles.sectionTitle}>Trip Itinerary</Text>
                 <TouchableOpacity
                   style={[styles.smallButton, isLoading && styles.buttonDisabled]}
                   onPress={addItineraryStop}
@@ -400,7 +401,7 @@ export function TripForm({ initialValues, onSubmit, onCancel, isLoading: externa
               </View>
 
               {itinerary.length === 0 ? (
-                <Text style={styles.helperText}>Add each sea day, port day, embarkation, and debarkation day.</Text>
+                <Text style={styles.helperText}>Add each city, stop, travel day, sea day, park day, or resort move.</Text>
               ) : (
                 itinerary.map((stop, index) => (
                   <View key={stop.id} style={styles.stopCard}>
@@ -424,7 +425,13 @@ export function TripForm({ initialValues, onSubmit, onCancel, isLoading: externa
                           disabled={isLoading}
                         >
                           <Text style={[styles.stopTypeText, stop.type === type && styles.stopTypeTextActive]}>
-                            {type === 'debark' ? 'Debark' : type.charAt(0).toUpperCase() + type.slice(1)}
+                            {type === 'embark'
+                              ? 'Start'
+                              : type === 'port'
+                                ? 'Location'
+                                : type === 'sea'
+                                  ? 'Travel/Sea'
+                                  : 'End'}
                           </Text>
                         </TouchableOpacity>
                       ))}
@@ -434,7 +441,7 @@ export function TripForm({ initialValues, onSubmit, onCancel, isLoading: externa
                       style={styles.input}
                       value={stop.portName}
                       onChangeText={(value) => updateItineraryStop(stop.id, { portName: value })}
-                      placeholder={stop.type === 'sea' ? 'At Sea' : 'Port or city name'}
+                      placeholder={stop.type === 'sea' ? 'Travel day or At Sea' : 'City, park, resort, or port name'}
                       editable={!isLoading}
                     />
                     <TextInput
@@ -448,7 +455,7 @@ export function TripForm({ initialValues, onSubmit, onCancel, isLoading: externa
                       style={styles.input}
                       value={stop.location || ''}
                       onChangeText={(value) => updateItineraryStop(stop.id, { location: value })}
-                      placeholder="Specific area or terminal (optional)"
+                      placeholder="Specific area, terminal, hotel, park, or neighborhood (optional)"
                       editable={!isLoading}
                     />
                     <View style={styles.timeRow}>
@@ -471,7 +478,7 @@ export function TripForm({ initialValues, onSubmit, onCancel, isLoading: externa
                       style={[styles.input, styles.compactTextArea]}
                       value={stop.notes || ''}
                       onChangeText={(value) => updateItineraryStop(stop.id, { notes: value })}
-                      placeholder="Notes, excursion constraints, ship all-aboard time..."
+                      placeholder="Notes, constraints, travel buffer, all-aboard time..."
                       multiline
                       editable={!isLoading}
                     />

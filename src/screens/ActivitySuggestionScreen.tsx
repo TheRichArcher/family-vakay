@@ -35,7 +35,7 @@ const ActivitySuggestionScreen = () => {
         if (!isMounted) return;
         setTrip(fetchedTrip);
         const firstStop = fetchedTrip.itinerary?.[0];
-        if (fetchedTrip.tripType === 'cruise' && firstStop) {
+        if ((fetchedTrip.tripType === 'multiLocation' || fetchedTrip.tripType === 'cruise') && firstStop) {
           setSelectedStopId(firstStop.id);
         }
       } catch (error) {
@@ -91,7 +91,7 @@ const ActivitySuggestionScreen = () => {
         suggestion.kidFit ? `Kid fit: ${suggestion.kidFit}` : undefined,
         suggestion.costLevel ? `Cost: ${suggestion.costLevel}` : undefined,
         suggestion.timeNeeded ? `Time needed: ${suggestion.timeNeeded}` : undefined,
-        selectedStop ? `Cruise stop: ${formatStopLabel(selectedStop)}` : undefined,
+        selectedStop ? `Trip stop: ${formatStopLabel(selectedStop)}` : undefined,
       ].filter(Boolean);
 
       const activityData: ActivityData = {
@@ -157,9 +157,9 @@ const ActivitySuggestionScreen = () => {
     <View style={styles.container}>
       {showSurvey ? (
         <>
-          {trip?.tripType === 'cruise' && (
+          {(trip?.tripType === 'multiLocation' || trip?.tripType === 'cruise') && (
             <View style={styles.stopSelector}>
-              <Text style={styles.title}>Pick a cruise day</Text>
+              <Text style={styles.title}>Pick a day or location</Text>
               {trip.itinerary && trip.itinerary.length > 0 ? (
                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                   {trip.itinerary.map(stop => (
@@ -187,7 +187,7 @@ const ActivitySuggestionScreen = () => {
                   ))}
                 </ScrollView>
               ) : (
-                <Text style={styles.emptyStateText}>Add cruise stops in Manage Trip first. Until then, suggestions will use the overall trip.</Text>
+                <Text style={styles.emptyStateText}>Add itinerary stops in Manage Trip first. Until then, suggestions will use the overall trip.</Text>
               )}
             </View>
           )}
