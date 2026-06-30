@@ -143,7 +143,7 @@ async def get_family_by_share_code(share_code: str):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invalid share code.")
     return schemas.FamilyId(familyId=family_id)
 
-@router.get("/{family_id}/members", response_model=List[schemas.UserProfile])
+@router.get("/{family_id}/members", response_model=List[schemas.MemberUserProfile], response_model_exclude_none=True)
 async def get_family_members(family_id: str, current_user: dict = Depends(get_current_user)):
     # Security check: Ensure current user is part of the family they are requesting.
     user_family_id = current_user.get('family_id') or current_user.get('familyId')
@@ -156,4 +156,4 @@ async def get_family_members(family_id: str, current_user: dict = Depends(get_cu
     if not members:
         logger.warning(f"No family members found for family_id: {family_id} using either 'family_id' or 'familyId' fields.")
 
-    return members
+    return [schemas.MemberUserProfile(**member.model_dump(by_alias=True)) for member in members]

@@ -82,6 +82,22 @@ async def health_check():
 async def health_check_explicit():
     return {"status": "ok"}
 
+@app.get("/version", include_in_schema=False)
+async def version_check():
+    commit = (
+        os.getenv("RENDER_GIT_COMMIT")
+        or os.getenv("GIT_COMMIT")
+        or os.getenv("COMMIT_SHA")
+        or "unknown"
+    )
+    return {
+        "status": "ok",
+        "service": os.getenv("RENDER_SERVICE_NAME", "family-vakay-backend"),
+        "environment": SENTRY_ENV,
+        "commit": commit,
+        "shortCommit": commit[:7] if commit != "unknown" else "unknown",
+    }
+
 # Configure CORS from environment variable (comma-separated)
 # Keep localhost defaults for development convenience; rely on CORS_ORIGINS for staging/prod.
 default_origins = [
@@ -124,4 +140,4 @@ app.include_router(trips.router, prefix="/api/v1/trips", tags=["trips"])
 app.include_router(activities.router, prefix="/api/v1/activities", tags=["activities"])
 app.include_router(ai.router, prefix="/api/v1/ai", tags=["ai"])
 app.include_router(family.router, prefix="/api/v1/family", tags=["family"])
-app.include_router(rewards.router, prefix="/api/v1/rewards", tags=["rewards"]) 
+app.include_router(rewards.router, prefix="/api/v1/rewards", tags=["rewards"])

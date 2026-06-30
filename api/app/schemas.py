@@ -259,6 +259,17 @@ class PublicUserProfile(BaseModel):
     role: Optional[UserRole] = None
     is_kid: bool = Field(False, alias='isKid')
 
+class MemberUserProfile(BaseModel):
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True, use_enum_values=True, model_dump_by_alias=True)
+
+    uid: str
+    name: Optional[str] = None
+    role: Optional[UserRole] = None
+    family_id: Optional[str] = Field(None, alias='familyId')
+    is_kid: bool = Field(False, alias='isKid')
+    age: Optional[int] = None
+    points: Optional[int] = 0
+
 class FamilyMemberUpdate(BaseModel):
     name: Optional[str] = None
     age: Optional[int] = None

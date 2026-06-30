@@ -14,7 +14,12 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-@router.post("/batch", response_model=List[schemas.UserProfile])
+def _member_profile(profile: dict) -> schemas.MemberUserProfile:
+    data = dict(profile)
+    data.setdefault("uid", profile.get("uid"))
+    return schemas.MemberUserProfile(**data)
+
+@router.post("/batch", response_model=List[schemas.MemberUserProfile], response_model_exclude_none=True)
 async def get_users_batch(user_id_list: schemas.UserIDList, current_user: dict = Depends(get_current_user)):
     """
     Retrieves a list of user profiles from a list of user IDs.
@@ -25,9 +30,7 @@ async def get_users_batch(user_id_list: schemas.UserIDList, current_user: dict =
     user_service = UserService()
     profiles = await user_service.get_users_by_ids(user_id_list.user_ids)
 
-    # We must ensure that the output conforms to the UserProfile schema.
-    # Pydantic will validate this automatically when we return the list.
-    return [schemas.UserProfile(**p) for p in profiles]
+    return [_member_profile(p) for p in profiles]
 
 @router.post("/kid", response_model=schemas.UserProfile, status_code=status.HTTP_201_CREATED)
 async def create_kid_profile(kid_data: schemas.KidProfileCreate, current_user: dict = Depends(get_current_user)):
@@ -175,16 +178,24 @@ async def get_admin_stats(current_user: dict = Depends(get_current_user)):
     stats = await user_service.get_admin_stats(family_id)
     return schemas.AdminStats(**stats)
 
-@router.get("/by-email/{email}", response_model=schemas.UserProfile)
+@router.get("/by-email/{email}", response_model=schemas.MemberUserProfile, response_model_exclude_none=True)
 async def get_user_by_email(email: str, current_user: dict = Depends(get_current_user)):
-    # Add security check if necessary, e.g. only admins can search
+    if current_user.get('role') != schemas.UserRole.ADMIN:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only admins can search users by email.")
+
     user_service = UserService()
     user = await user_service.get_user_by_email(email)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    return user
 
-@router.get("/{user_id}", response_model=schemas.UserProfile)
+    current_family_id = current_user.get('family_id') or current_user.get('familyId') or current_user.get('profile', {}).get('familyId')
+    target_family_id = user.get('family_id') or user.get('familyId')
+    if not current_family_id or not target_family_id or current_family_id != target_family_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admins can only search users in their own family.")
+
+    return _member_profile(user)
+
+@router.get("/{user_id}", response_model=schemas.UserProfile, response_model_exclude_none=True)
 async def get_user_profile(user_id: str, token: dict = Depends(get_current_user_token)):
     user_service = UserService()
 
@@ -212,20 +223,20 @@ async def get_user_profile(user_id: str, token: dict = Depends(get_current_user_
 
     # New Rule: Admins can see any profile.
     if current_user_profile.get('role') == 'admin':
-        return target_user_profile
+        return _member_profile(target_user_profile)
 
     # Authorization Rule 1: Users in the same family can see each other's profiles.
     current_family_id = current_user_profile.get('family_id') or current_user_profile.get('familyId')
     target_family_id = target_user_profile.get('family_id') or target_user_profile.get('familyId')
     if current_family_id and current_family_id == target_family_id:
-        return target_user_profile
+        return _member_profile(target_user_profile)
 
     # Authorization Rule 2: Users who share a trip can see each other's profiles.
     current_user_trips = set(current_user_profile.get('trip_ids') or current_user_profile.get('tripIds') or [])
     target_user_trips = set(target_user_profile.get('trip_ids') or target_user_profile.get('tripIds') or [])
 
     if current_user_trips.intersection(target_user_trips):
-        return target_user_profile
+        return _member_profile(target_user_profile)
 
     # If no authorization rules match, deny access.
     raise HTTPException(status_code=403, detail="Not authorized to access this user's profile")

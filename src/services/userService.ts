@@ -8,8 +8,6 @@ export interface UserProfile {
   familyId?: string;
   family_id?: string;
   isKid: boolean;
-  pin?: string;
-  pinHash?: string;
   avatarUrl?: string;
   age?: number;
   shareCode?: string;

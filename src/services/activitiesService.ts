@@ -188,7 +188,6 @@ export const activitiesService = {
             body: blob,
             headers: {
                 'Content-Type': contentType,
-                'Content-Length': String(blob.size),
             },
         });
 
@@ -241,4 +240,4 @@ export const activitiesService = {
       clearInterval(intervalId);
     };
   }
-}; 
+};
