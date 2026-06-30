@@ -81,6 +81,24 @@ const parseUSDateInput = (value: string) => {
   return parsed;
 };
 
+const formatDateInputValue = (value?: string) => {
+  if (!value) {
+    return '';
+  }
+
+  const parsedDate = parseUSDateInput(value);
+  if (parsedDate) {
+    return formatToUSDate(parsedDate);
+  }
+
+  return value;
+};
+
+const formatDateInputForSubmit = (value: string) => {
+  const parsedDate = parseUSDateInput(value);
+  return parsedDate ? formatToYYYYMMDD(parsedDate) : value;
+};
+
 export function TripForm({ initialValues, onSubmit, onCancel, isLoading: externalLoading }: TripFormProps) {
   const { user } = useAuth();
   const [name, setName] = useState(initialValues?.name || '');
@@ -94,7 +112,12 @@ export function TripForm({ initialValues, onSubmit, onCancel, isLoading: externa
   const [status, setStatus] = useState<Trip['status']>(initialValues?.status || 'upcoming');
   const initialTripType = initialValues?.tripType === 'cruise' ? 'multiLocation' : (initialValues?.tripType || 'standard');
   const [tripType, setTripType] = useState<'standard' | 'multiLocation'>(initialTripType as 'standard' | 'multiLocation');
-  const [itinerary, setItinerary] = useState<ItineraryStop[]>(initialValues?.itinerary || []);
+  const [itinerary, setItinerary] = useState<ItineraryStop[]>(
+    initialValues?.itinerary?.map(stop => ({
+      ...stop,
+      date: formatDateInputValue(stop.date),
+    })) || []
+  );
   const [isSubmittingInternal, setIsSubmittingInternal] = useState(false);
   const [showStartDatePicker, setShowStartDatePicker] = useState(false);
   const [showEndDatePicker, setShowEndDatePicker] = useState(false);
@@ -203,7 +226,7 @@ export function TripForm({ initialValues, onSubmit, onCancel, isLoading: externa
       ...prev,
       {
         id: `stop-${Date.now()}-${nextIndex}`,
-        date: formatToYYYYMMDD(clampedDate),
+        date: formatToUSDate(clampedDate),
         type: nextIndex === 0 ? 'embark' : 'port',
         portName: nextIndex === 0 ? location || 'Embarkation' : '',
         location: '',
@@ -263,6 +286,7 @@ export function TripForm({ initialValues, onSubmit, onCancel, isLoading: externa
       .filter(stop => stop.date && stop.portName)
       .map(stop => ({
         ...stop,
+        date: formatDateInputForSubmit(stop.date),
         portName: stop.type === 'sea' ? (stop.portName || 'At Sea') : stop.portName,
         location: stop.location || undefined,
         arrivalTime: stop.arrivalTime || undefined,
@@ -515,7 +539,7 @@ export function TripForm({ initialValues, onSubmit, onCancel, isLoading: externa
                       style={styles.input}
                       value={stop.date}
                       onChangeText={(value) => updateItineraryStop(stop.id, { date: value })}
-                      placeholder="YYYY-MM-DD"
+                      placeholder="MM-DD-YYYY"
                       editable={!isLoading}
                     />
                     <TextInput

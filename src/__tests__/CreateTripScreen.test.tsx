@@ -114,6 +114,35 @@ describe('CreateTripScreen', () => {
     });
   });
 
+  it('submits itinerary stop dates in API format from US date inputs', async () => {
+    const { getByPlaceholderText, getByText, queryByText } = render(<CreateTripScreen />);
+
+    await waitFor(() => expect(queryByText('Participants')).toBeTruthy());
+
+    fireEvent.changeText(getByPlaceholderText('Enter trip name'), 'Cruise');
+    fireEvent.changeText(getByPlaceholderText('e.g., A week of adventure in the mountains'), 'Boston to Bermuda');
+    fireEvent.changeText(getByPlaceholderText('e.g., Denver, CO'), 'Bermuda');
+    fireEvent.press(getByText('Multiple Locations'));
+    fireEvent.press(getByText('Add Stop'));
+    fireEvent.press(getByText('Save'));
+
+    const { tripsService } = require('../services/trips');
+    await waitFor(() => {
+      expect(tripsService.createTrip).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tripType: 'multiLocation',
+          itinerary: [
+            expect.objectContaining({
+              date: '2026-07-05',
+              portName: 'Bermuda',
+            }),
+          ],
+        }),
+        'test-user-id',
+      );
+    });
+  });
+
   it('returns to the Trips tab when opened directly without navigation history', async () => {
     mockCanGoBack.mockReturnValue(false);
     const { getByText } = render(<CreateTripScreen />);
