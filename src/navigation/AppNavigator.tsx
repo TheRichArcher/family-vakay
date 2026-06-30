@@ -32,6 +32,7 @@ import AdminScavengerHuntScreen from '../screens/AdminScavengerHuntScreen';
 import AdminManageTripActivitiesScreen from '../screens/AdminManageTripActivitiesScreen';
 import ActivitySuggestionScreen from '../screens/ActivitySuggestionScreen';
 import RewardsStoreScreen from '../screens/RewardsStoreScreen';
+import BudgetCommandCenterScreen from '../screens/BudgetCommandCenterScreen';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import * as Linking from 'expo-linking';
@@ -78,6 +79,7 @@ export type AdminStackParamList = {
   CreateTrip: undefined;
   AdminScavengerHunt: undefined;
   RewardsStore: undefined;
+  BudgetCommandCenter: { tripId: string };
   AdminManageTripActivities: { tripId: string };
   CreateActivity: { tripId: string };
   EditActivity: { activity: Activity };
@@ -173,6 +175,7 @@ const AdminStack = () => (
     <AdminStackNav.Screen name="CreateTrip" component={CreateTripScreen} options={{ title: 'Create a New Trip' }} />
     <AdminStackNav.Screen name="AdminScavengerHunt" component={AdminScavengerHuntScreen} options={{ title: 'Scavenger Hunt' }} />
     <AdminStackNav.Screen name="RewardsStore" component={RewardsStoreScreen} options={{ title: 'Rewards Store' }} />
+    <AdminStackNav.Screen name="BudgetCommandCenter" component={BudgetCommandCenterScreen} options={{ title: 'Budget Command Center' }} />
     <AdminStackNav.Screen name="AdminManageTripActivities" component={AdminManageTripActivitiesScreen} options={{ title: 'Manage Activities' }} />
     <AdminStackNav.Screen name="CreateActivity" component={CreateActivityScreen} options={{ title: 'Add an Activity' }} />
     <AdminStackNav.Screen name="EditActivity" component={EditActivityScreen} options={{ title: 'Edit Activity' }} />

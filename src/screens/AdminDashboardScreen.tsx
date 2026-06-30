@@ -56,6 +56,10 @@ const AdminDashboardScreen = () => {
             <View key={trip.id} style={styles.tripBudgetCard}>
               <Text style={styles.tripName}>{trip.name}</Text>
               <BudgetStatus budget={trip.budget || 0} totalSpent={trip.totalSpent} />
+              <TouchableOpacity style={styles.budgetButton} onPress={() => navigation.navigate('BudgetCommandCenter', { tripId: trip.id })}>
+                <Ionicons name="wallet-outline" size={18} color={colors.white} />
+                <Text style={styles.budgetButtonText}>Open Budget</Text>
+              </TouchableOpacity>
             </View>
           ))
         ) : (
@@ -138,6 +142,21 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: 20,
     fontSize: 16,
+  },
+  budgetButton: {
+    marginTop: 14,
+    borderRadius: 8,
+    backgroundColor: colors.primary,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  budgetButtonText: {
+    ...typography.button,
+    color: colors.white,
   },
   menuContainer: {
     paddingHorizontal: 20,

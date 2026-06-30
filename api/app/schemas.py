@@ -221,6 +221,9 @@ class ActivityBase(BaseModel):
     budget: Optional[float] = None
     cost: Optional[float] = None
     additional_expenses: Optional[float] = Field(None, alias='additionalExpenses')
+    budget_category: Optional[str] = Field(None, alias='budgetCategory')
+    payment_status: Optional[str] = Field(None, alias='paymentStatus')
+    amount_paid: Optional[float] = Field(None, alias='amountPaid')
     cover_image_url: Optional[str] = Field(None, alias='coverImageUrl')
     image_urls: Optional[List[str]] = Field(default_factory=list, alias='imageUrls')
     images: Optional[List[ImageDict]] = Field(default_factory=list)
@@ -254,6 +257,9 @@ class ActivityUpdate(BaseModel):
     budget: Optional[float] = None
     cost: Optional[float] = None
     additional_expenses: Optional[float] = Field(None, alias='additionalExpenses')
+    budget_category: Optional[str] = Field(None, alias='budgetCategory')
+    payment_status: Optional[str] = Field(None, alias='paymentStatus')
+    amount_paid: Optional[float] = Field(None, alias='amountPaid')
     cover_image_url: Optional[str] = Field(None, alias='coverImageUrl')
     image_urls: Optional[List[str]] = Field(None, alias='imageUrls')
     images: Optional[List[ImageDict]] = None

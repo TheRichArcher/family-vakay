@@ -18,6 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 
 type PriceRange = '$' | '$$' | '$$$' | '$$$$';
+type PaymentStatus = 'unpaid' | 'deposit-paid' | 'paid';
 
 interface ActivityFormProps {
   initialValues?: Partial<Activity>;
@@ -40,6 +41,9 @@ export function ActivityForm({
   const [budget, setBudget] = useState(initialValues?.budget?.toString() || '');
   const [cost, setCost] = useState(initialValues?.cost?.toString() || '');
   const [additionalExpenses, setAdditionalExpenses] = useState(initialValues?.additionalExpenses?.toString() || '');
+  const [budgetCategory, setBudgetCategory] = useState(initialValues?.budgetCategory || '');
+  const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>(initialValues?.paymentStatus || 'unpaid');
+  const [amountPaid, setAmountPaid] = useState(initialValues?.amountPaid?.toString() || '');
   const [imageUris, setImageUris] = useState<string[]>(initialValues?.imageUrls || []);
   const [challenges, setChallenges] = useState<Challenge[]>(initialValues?.challenges || []);
   const [newChallengeText, setNewChallengeText] = useState('');
@@ -54,6 +58,12 @@ export function ActivityForm({
   ];
 
   const activityPriceRanges: PriceRange[] = ['$', '$$', '$$$', '$$$$'];
+  const budgetCategories = ['Lodging', 'Food', 'Transport', 'Activities', 'Shopping', 'Misc'];
+  const paymentStatuses: Array<{ label: string; value: PaymentStatus }> = [
+    { label: 'Unpaid', value: 'unpaid' },
+    { label: 'Deposit Paid', value: 'deposit-paid' },
+    { label: 'Paid', value: 'paid' },
+  ];
 
   const handleActivityTypePress = (category: string) => {
     setActivityTypes(prev =>
@@ -296,6 +306,8 @@ export function ActivityForm({
       isBooked,
       isIdea,
       priceRange: priceRange || undefined,
+      budgetCategory: budgetCategory || undefined,
+      paymentStatus,
     };
 
     if (isDateSet && activityDateTime) {
@@ -326,6 +338,13 @@ export function ActivityForm({
       const expensesValue = parseFloat(additionalExpenses);
       if (!isNaN(expensesValue)) {
         activityData.additionalExpenses = expensesValue;
+      }
+    }
+
+    if (amountPaid.trim()) {
+      const paidValue = parseFloat(amountPaid);
+      if (!isNaN(paidValue)) {
+        activityData.amountPaid = paidValue;
       }
     }
 
@@ -516,12 +535,67 @@ export function ActivityForm({
         keyboardType="numeric"
       />
 
+      <Text style={styles.label}>Budget Category</Text>
+      <View style={styles.categoryContainer}>
+        {budgetCategories.map(category => (
+          <TouchableOpacity
+            key={category}
+            style={[
+              styles.categoryButton,
+              budgetCategory === category && styles.categoryButtonSelected,
+            ]}
+            onPress={() => setBudgetCategory(prev => (prev === category ? '' : category))}
+          >
+            <Text
+              style={[
+                styles.categoryButtonText,
+                budgetCategory === category && styles.categoryButtonTextSelected,
+              ]}
+            >
+              {category}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
       <Text style={styles.label}>Cost</Text>
       <TextInput
         style={styles.input}
         value={cost}
         onChangeText={setCost}
         placeholder="e.g., 75.50"
+        keyboardType="numeric"
+      />
+
+      <Text style={styles.label}>Payment Status</Text>
+      <View style={styles.categoryContainer}>
+        {paymentStatuses.map(status => (
+          <TouchableOpacity
+            key={status.value}
+            style={[
+              styles.categoryButton,
+              paymentStatus === status.value && styles.categoryButtonSelected,
+            ]}
+            onPress={() => setPaymentStatus(status.value)}
+          >
+            <Text
+              style={[
+                styles.categoryButtonText,
+                paymentStatus === status.value && styles.categoryButtonTextSelected,
+              ]}
+            >
+              {status.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      <Text style={styles.label}>Amount Paid</Text>
+      <TextInput
+        style={styles.input}
+        value={amountPaid}
+        onChangeText={setAmountPaid}
+        placeholder="e.g., 40"
         keyboardType="numeric"
       />
 

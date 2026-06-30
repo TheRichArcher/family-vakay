@@ -54,6 +54,9 @@ export interface Activity {
   budget?: number;
   cost?: number;
   additionalExpenses?: number;
+  budgetCategory?: string;
+  paymentStatus?: 'unpaid' | 'deposit-paid' | 'paid';
+  amountPaid?: number;
   mood?: 'happy' | 'neutral' | 'sad' | 'tired';
   /** @deprecated - use images instead */
   imageUrls?: string[];
@@ -85,6 +88,9 @@ export interface PartialActivityData {
   budget?: number;
   cost?: number;
   additionalExpenses?: number;
+  budgetCategory?: string;
+  paymentStatus?: 'unpaid' | 'deposit-paid' | 'paid';
+  amountPaid?: number;
   mood?: 'happy' | 'neutral' | 'sad' | 'tired';
   imageUrls?: string[];
   images?: Array<{ url: string; userId: string; uploadedAt: string }>;

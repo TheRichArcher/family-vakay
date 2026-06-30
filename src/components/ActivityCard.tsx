@@ -8,6 +8,7 @@ import { getDateTime } from '../utils/dateUtils';
 import { openWebsiteUrl } from '../utils/urlUtils';
 import { Vote } from '../types/activity';
 import { StorageImage } from './StorageImage';
+import { formatCurrency, getActivityBudgetCategory, getActivityPaidAmount, getActivityPlannedAmount } from '../utils/budgetUtils';
 
 type ActivityCardUser = {
   uid: string;
@@ -89,6 +90,9 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
   const ratingValues = Object.values(ratings).map((r: Rating) => r.rating);
   const averageRating = ratingValues.length > 0 ? (ratingValues.reduce((a, b) => a + b, 0) / ratingValues.length) : 0;
   const currentUserRatingInfo = user ? ratings[user.uid] : undefined;
+  const plannedBudgetImpact = getActivityPlannedAmount(item);
+  const paidAmount = getActivityPaidAmount(item);
+  const paymentStatusLabel = item.paymentStatus === 'deposit-paid' ? 'Deposit Paid' : item.paymentStatus === 'paid' ? 'Paid' : 'Unpaid';
 
   const handleSetRating = (rating: number) => {
     setUserRating(rating);
@@ -141,7 +145,18 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
             </View>
           )}
 
-          {canPerformAdminActions && typeof item.budget === 'number' && <Text style={styles.activityDetailText}>💰 Budget: ${item.budget.toFixed(2)}</Text>}
+          {canPerformAdminActions && plannedBudgetImpact > 0 && (
+            <View style={styles.budgetImpactContainer}>
+              <View style={styles.budgetImpactHeader}>
+                <Text style={styles.budgetImpactTitle}>{isIdeaSection ? 'Budget Impact' : 'Budget Tracking'}</Text>
+                <Text style={styles.budgetImpactAmount}>{formatCurrency(plannedBudgetImpact)}</Text>
+              </View>
+              <Text style={styles.activityDetailText}>{getActivityBudgetCategory(item)} • {paymentStatusLabel}</Text>
+              {paidAmount > 0 && (
+                <Text style={styles.activityDetailText}>Paid: {formatCurrency(paidAmount)}</Text>
+              )}
+            </View>
+          )}
           
           {canPerformAdminActions && (
             (typeof item.cost === 'number' && item.cost > 0) || 
@@ -509,6 +524,31 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: colors.text,
     marginTop: 4,
+  },
+  budgetImpactContainer: {
+    marginTop: 8,
+    padding: 10,
+    borderRadius: 8,
+    backgroundColor: colors.backgroundAlt,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  budgetImpactHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 4,
+  },
+  budgetImpactTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  budgetImpactAmount: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: colors.primary,
   },
   categoryContainer: {
     flexDirection: 'row',

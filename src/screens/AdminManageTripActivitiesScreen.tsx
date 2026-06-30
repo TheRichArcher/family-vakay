@@ -127,6 +127,10 @@ export default function AdminManageTripActivitiesScreen() {
     <View style={{ flex: 1 }}>
       <View style={styles.header}>
         <Text style={styles.title}>{currentTrip.name}</Text>
+        <TouchableOpacity style={styles.budgetButton} onPress={() => navigation.navigate('BudgetCommandCenter', { tripId: currentTrip.id })}>
+            <Ionicons name="wallet-outline" size={22} color={colors.white} />
+            <Text style={styles.addButtonText}>Budget Command Center</Text>
+        </TouchableOpacity>
         <TouchableOpacity style={styles.addButton} onPress={() => navigation.navigate('CreateActivity', { tripId: currentTrip.id })}>
             <Ionicons name="add" size={24} color={colors.white} />
             <Text style={styles.addButtonText}>Add Activity</Text>
@@ -206,6 +210,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.primary,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginTop: 16,
+  },
+  budgetButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.accent,
     paddingVertical: 12,
     borderRadius: 8,
     marginTop: 16,
