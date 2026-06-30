@@ -21,7 +21,28 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.4
-      - fromGroup: family-vk-app
+      - key: LOG_LEVEL
+        value: INFO
+      - key: SENTRY_ENV
+        value: production
+      - key: SENTRY_TRACES_SAMPLE_RATE
+        value: "0.0"
+      - key: CORS_ORIGINS
+        value: https://family-vk-app-frontend.onrender.com
+      - key: FRONTEND_URL
+        value: https://family-vk-app-frontend.onrender.com
+      - key: FIREBASE_PROJECT_ID
+        value: familyvk-b1cce
+      - key: GOOGLE_CLOUD_PROJECT
+        value: familyvk-b1cce
+      - key: FIREBASE_STORAGE_BUCKET
+        value: familyvk-b1cce.firebasestorage.app
+      - key: STORAGE_CORS_ORIGINS
+        value: https://family-vk-app-frontend.onrender.com
+      - key: OPENAI_MODEL
+        value: gpt-4o-mini
+      - key: FIREBASE_SERVICE_ACCOUNT_JSON
+        sync: false
     plan: free
     branch: main
     autoDeploy: true
