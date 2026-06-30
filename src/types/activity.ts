@@ -1,0 +1,1 @@
+export type Vote = 'very-sad' | 'sad' | 'neutral' | 'happy' | 'very-happy'; 

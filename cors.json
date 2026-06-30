@@ -1,0 +1,17 @@
+[
+  {
+    "origin": [
+      "http://localhost",
+      "http://localhost:19006",
+      "http://localhost:8081",
+      "https://family-vk-app.onrender.com",
+      "https://family-vk-app-frontend.onrender.com",
+      "capacitor://localhost",
+      "ionic://localhost",
+      "http://localhost:8100"
+    ],
+    "method": ["PUT", "GET", "POST", "DELETE", "HEAD"],
+    "responseHeader": ["Content-Type", "Content-Length", "x-goog-resumable"],
+    "maxAgeSeconds": 3600
+  }
+]

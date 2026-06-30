@@ -1,0 +1,76 @@
+{
+  "expo": {
+    "name": "Family-Vakay",
+    "slug": "family-vk-app-new",
+    "version": "1.0.1",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#F8FAFC"
+    },
+    "scheme": "family-vk-app-frontend",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.x2enterprises.familyvkapp",
+      "buildNumber": "2",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "googleServicesFile": "./GoogleService-Info.plist"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#F8FAFC"
+      },
+      "package": "com.x2enterprises.familyvkapp",
+      "googleServicesFile": "./google-services.json"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single",
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "@react-native-firebase/app",
+      "@react-native-firebase/auth",
+      "react-native-edge-to-edge"
+    ],
+    "extra": {
+      "EXPO_PUBLIC_FIREBASE_APP_CHECK_KEY": "6Lef5nArAAAAAL00QoOFgergjJqWc2xsw1inCeW-",
+      "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyDcCnHK1nV0F2rYTQesT8a2KleTyzTzOhI",
+      "EXPO_PUBLIC_FIREBASE_APP_ID": "1:539277137649:web:d9c26d835207f22c9cfb50",
+      "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "familyvk-b1cce.firebaseapp.com",
+      "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "familyvk-b1cce",
+      "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "familyvk-b1cce.firebasestorage.app",
+      "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "539277137649",
+      "EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID": "G-GSML6JD1CG",
+      "EXPO_PUBLIC_API_URL": "https://family-vk-app-backend.onrender.com",
+      "DEEPLINK_BASE_URL": "https://family-vk-app-frontend.onrender.com",
+      "QR_BASE_URL": "https://family-vk-app-frontend.onrender.com",
+      "eas": {
+        "projectId": "f5e9c5d0-953e-42e5-a36c-2f7810776510"
+      }
+    },
+    "owner": "x2-enterprises",
+    "description": "",
+    "sdkVersion": "51.0.0",
+    "platforms": [
+      "ios",
+      "android",
+      "web"
+    ],
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/f5e9c5d0-953e-42e5-a36c-2f7810776510"
+    }
+  }
+}

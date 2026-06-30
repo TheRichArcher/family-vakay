@@ -1,0 +1,11 @@
+{
+  "buildCommand": "npx expo export --experimental-bundle --output-dir=dist",
+  "outputDirectory": "dist",
+  "framework": "other",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+} 

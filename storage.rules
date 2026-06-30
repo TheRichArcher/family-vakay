@@ -1,0 +1,31 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isTripParticipant(tripId) {
+      let trip = get(/databases/(default)/documents/trips/$(tripId)).data;
+      return request.auth.uid != null &&
+        (trip.ownerId == request.auth.uid || request.auth.uid in trip.participants);
+    }
+
+    function isOwnerPath(userId) {
+      return request.auth.uid != null && request.auth.uid == userId;
+    }
+
+    function isValidImage() {
+      return request.resource != null &&
+        request.resource.size < 10 * 1024 * 1024 &&
+        request.resource.contentType.matches('image/.*');
+    }
+
+    match /activity_images/{tripId}/{imageId} {
+      allow read: if isTripParticipant(tripId);
+      allow write: if isTripParticipant(tripId) && isValidImage();
+    }
+
+    match /trip_cover_images/{userId}/{tripId}/{imageName} {
+      allow read: if isTripParticipant(tripId);
+      allow write: if isOwnerPath(userId) && isTripParticipant(tripId) && isValidImage();
+    }
+  }
+}

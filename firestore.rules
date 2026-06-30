@@ -1,0 +1,70 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth.uid != null;
+    }
+
+    function currentUser() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isAdminForFamily(familyId) {
+      return isSignedIn() &&
+        currentUser().role == 'admin' &&
+        currentUser().familyId == familyId;
+    }
+
+    function canAccessTrip(trip) {
+      return isSignedIn() && (
+        request.auth.uid == trip.ownerId ||
+        request.auth.uid in trip.participants ||
+        isAdminForFamily(trip.familyId)
+      );
+    }
+
+    function tripIsAccessible(tripId) {
+      return canAccessTrip(get(/databases/$(database)/documents/trips/$(tripId)).data);
+    }
+
+    match /users/{userId} {
+      allow read: if request.auth.uid == userId ||
+                   isAdminForFamily(resource.data.familyId);
+      allow create: if isSignedIn() && (
+        request.auth.uid == userId ||
+        isAdminForFamily(request.resource.data.familyId)
+      ) && (
+        !('pinHash' in request.resource.data.keys()) ||
+        currentUser().role == 'admin'
+      );
+      allow update: if (
+        request.auth.uid == userId ||
+        isAdminForFamily(request.resource.data.familyId)
+      ) && (
+        !('pinHash' in request.resource.data.keys()) ||
+        request.resource.data.pinHash == resource.data.pinHash ||
+        currentUser().role == 'admin'
+      );
+      allow delete: if isAdminForFamily(get(/databases/$(database)/documents/users/$(userId)).data.familyId);
+    }
+
+    match /trips/{tripId} {
+      allow read: if canAccessTrip(resource.data);
+      allow create: if isSignedIn() &&
+        request.auth.uid == request.resource.data.ownerId &&
+        request.auth.uid in request.resource.data.participants &&
+        request.resource.data.familyId == currentUser().familyId;
+      allow update: if canAccessTrip(resource.data) &&
+        request.resource.data.familyId == resource.data.familyId &&
+        request.resource.data.ownerId == resource.data.ownerId;
+      allow delete: if canAccessTrip(resource.data);
+    }
+
+    match /activities/{activityId} {
+      allow read, delete: if tripIsAccessible(resource.data.tripId);
+      allow update: if tripIsAccessible(resource.data.tripId) &&
+        request.resource.data.tripId == resource.data.tripId;
+      allow create: if tripIsAccessible(request.resource.data.tripId);
+    }
+  }
+}
