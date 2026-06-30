@@ -54,7 +54,7 @@ def stub_async_firestore(monkeypatch):
             return _aiter()
         def add(self, *_args, **_kwargs):
             async def _add():
-                return types.SimpleNamespace(id='new'), None
+                return None, types.SimpleNamespace(id='new')
             return _add()
         def update(self, *_args, **_kwargs):
             async def _update():
@@ -69,5 +69,4 @@ def stub_async_firestore(monkeypatch):
     monkeypatch.setattr('app.firebase_admin.get_async_firestore_client', lambda: dummy_db)
     # Also patch the symbol as imported in services module
     monkeypatch.setattr('app.services.trips_service.get_async_firestore_client', lambda: dummy_db)
-
 

@@ -1,7 +1,9 @@
 from datetime import date, timedelta
+import asyncio
+from types import SimpleNamespace
 
-from app.services.trips_service import _get_trip_status
-from app.schemas import TripStatus
+from app.services.trips_service import TripsService, _get_trip_status
+from app.schemas import TripCreate, TripStatus
 
 
 def test_get_trip_status_completed():
@@ -23,4 +25,64 @@ def test_get_trip_status_cancelled_stays_cancelled():
     today = date.today()
     assert _get_trip_status(today - timedelta(days=10), today - timedelta(days=5), TripStatus.CANCELLED) == TripStatus.CANCELLED
 
+
+def test_create_trip_uses_firestore_add_document_reference(monkeypatch):
+    created_data = {}
+    profile_updates = []
+
+    class FakeSnapshot:
+        exists = True
+        id = "trip-1"
+
+        def to_dict(self):
+            return {
+                **created_data,
+                "id": "trip-1",
+            }
+
+    class FakeDocumentRef:
+        id = "trip-1"
+
+        async def get(self):
+            return FakeSnapshot()
+
+    class FakeTripsCollection:
+        async def add(self, data):
+            created_data.update(data)
+            return SimpleNamespace(seconds=1), FakeDocumentRef()
+
+    class FakeDB:
+        def collection(self, name):
+            assert name == "trips"
+            return FakeTripsCollection()
+
+    class FakeUserService:
+        async def get_user_profile(self, user_id):
+            assert user_id == "admin-1"
+            return {"uid": user_id, "familyId": "fam-1", "role": "admin"}
+
+        async def update_user_profile(self, user_id, data):
+            profile_updates.append((user_id, data))
+
+    monkeypatch.setattr("app.services.trips_service.get_async_firestore_client", lambda: FakeDB())
+    monkeypatch.setattr("app.services.trips_service.UserService", lambda: FakeUserService())
+
+    trip = asyncio.run(
+        TripsService().create_trip(
+            TripCreate(
+                name="Beach",
+                description="Summer trip",
+                startDate="2026-07-01",
+                endDate="2026-07-05",
+                location="Cape Cod",
+                participants=["kid-1"],
+            ),
+            {"uid": "admin-1", "role": "admin"},
+        )
+    )
+
+    assert trip.id == "trip-1"
+    assert created_data["ownerId"] == "admin-1"
+    assert set(created_data["participants"]) == {"admin-1", "kid-1"}
+    assert {user_id for user_id, _data in profile_updates} == {"admin-1", "kid-1"}
 

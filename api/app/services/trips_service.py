@@ -300,8 +300,8 @@ class TripsService:
         elif isinstance(end_value, datetime):
             new_trip_data['endDate'] = end_value.date().strftime('%Y-%m-%d')
         
-        # Firestore add() returns (DocumentReference, WriteResult). We need the reference.
-        trip_ref, _write_result = await self.trips_collection.add(new_trip_data)
+        # Firestore add() returns (update_time, DocumentReference). We need the reference.
+        _update_time, trip_ref = await self.trips_collection.add(new_trip_data)
         
         # After creating the trip, update the participants' user profiles
         for participant_id in participants:

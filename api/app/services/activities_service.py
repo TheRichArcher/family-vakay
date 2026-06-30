@@ -134,7 +134,7 @@ class ActivitiesService:
 
         logger.info(f"Creating activity with data: {new_activity_data}")
 
-        doc_ref, _write_result = await self.activities_collection.add(new_activity_data)
+        _update_time, doc_ref = await self.activities_collection.add(new_activity_data)
         
         created_activity_doc = await doc_ref.get()
         created_activity = created_activity_doc.to_dict()
