@@ -1,13 +1,14 @@
 import React, { useState, useCallback } from 'react';
 import { 
   View, Text, StyleSheet, ActivityIndicator, FlatList, 
-  RefreshControl, Alert
+  RefreshControl, Alert, TouchableOpacity
 } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
 import { tripsService, Trip } from '../services/trips';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { colors } from '../theme/colors';
 import { TripCard } from '../components/TripCard';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function AdminManageTripsScreen() {
   const { user, authInitializing } = useAuth();
@@ -104,7 +105,13 @@ export default function AdminManageTripsScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Manage Trips</Text>
+      <View style={styles.headerRow}>
+        <Text style={styles.title}>Manage Trips</Text>
+        <TouchableOpacity style={styles.createButton} onPress={() => navigation.navigate('CreateTrip')}>
+          <Ionicons name="add-circle-outline" size={20} color={colors.textLight} />
+          <Text style={styles.createButtonText}>New Trip</Text>
+        </TouchableOpacity>
+      </View>
       
       <FlatList
         data={trips}
@@ -136,8 +143,27 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontWeight: 'bold',
     color: colors.text,
+    flex: 1,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
     marginBottom: 20,
-    textAlign: 'center',
+  },
+  createButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.primary,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  createButtonText: {
+    color: colors.textLight,
+    fontWeight: '700',
+    fontSize: 15,
   },
   tripsTitle: {
     fontSize: 22,
@@ -158,4 +184,4 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 20,
   }
-}); 
+});

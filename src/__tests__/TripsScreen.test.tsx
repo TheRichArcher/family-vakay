@@ -38,11 +38,24 @@ jest.mock('../services/trips', () => ({
 }));
 
 describe('TripsScreen', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
   it('loads trips and renders list', async () => {
     const { getByText, queryByText } = render(<TripsScreen />);
     await waitFor(() => expect(queryByText('My Trips')).toBeTruthy());
     expect(getByText('New Trip')).toBeTruthy();
     await waitFor(() => expect(getByText('Trip One')).toBeTruthy());
+  });
+
+  it('opens the shared create trip screen from the Trips page', async () => {
+    const { getByText } = render(<TripsScreen />);
+
+    await waitFor(() => expect(getByText('New Trip')).toBeTruthy());
+    fireEvent.press(getByText('New Trip'));
+
+    expect(mockNavigate).toHaveBeenCalledWith('CreateTrip');
   });
 
   it('allows joining a trip via code', async () => {
@@ -61,4 +74,3 @@ describe('TripsScreen', () => {
     await waitFor(() => expect(tripsService.updateTrip).toHaveBeenCalled());
   });
 });
-

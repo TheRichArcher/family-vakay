@@ -76,6 +76,10 @@ def test_create_trip_uses_firestore_add_document_reference(monkeypatch):
                 endDate="2026-07-05",
                 location="Cape Cod",
                 participants=["kid-1"],
+                budget=2500,
+                coverImageUrl="trip_cover_images/member-1/file.jpg",
+                coverImageThumbnailUrl="trip_cover_images/member-1/file_thumb.jpg",
+                coverImageResizedUrl="trip_cover_images/member-1/file_resized.jpg",
             ),
             {"uid": "member-1", "role": "member"},
         )
@@ -84,6 +88,11 @@ def test_create_trip_uses_firestore_add_document_reference(monkeypatch):
     assert trip.id == "trip-1"
     assert created_data["ownerId"] == "member-1"
     assert set(created_data["participants"]) == {"member-1", "kid-1"}
+    assert created_data["budget"] == 2500
+    assert created_data["coverImageUrl"] == "trip_cover_images/member-1/file.jpg"
+    assert created_data["coverImageThumbnailUrl"] == "trip_cover_images/member-1/file_thumb.jpg"
+    assert created_data["coverImageResizedUrl"] == "trip_cover_images/member-1/file_resized.jpg"
+    assert created_data["status"] == "upcoming"
     assert {user_id for user_id, _data in profile_updates} == {"member-1", "kid-1"}
 
 

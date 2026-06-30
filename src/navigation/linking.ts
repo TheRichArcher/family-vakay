@@ -30,6 +30,7 @@ const linking: LinkingOptions<RootStackParamList> = {
           Trips: {
             screens: {
               TripsList: 'trips',
+              CreateTrip: 'trips/new',
               TripDetail: 'trip/:tripId',
               CreateActivity: 'trip/:tripId/add-activity',
               EditActivity: 'edit-activity',
@@ -50,6 +51,7 @@ const linking: LinkingOptions<RootStackParamList> = {
               AdminDashboard: 'admin',
               AdminFamily: 'admin/family',
               AdminManageTrips: 'admin/trips',
+              CreateTrip: 'admin/trips/new',
               AdminScavengerHunt: 'admin/scavenger-hunt',
               AdminManageTripActivities: 'admin/trips/:tripId/activities',
               CreateActivity: 'admin/trips/:tripId/add-activity',

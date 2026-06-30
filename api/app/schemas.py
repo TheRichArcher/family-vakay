@@ -77,6 +77,11 @@ class TripCreate(BaseModel):
     end_date: DateType = Field(..., alias='endDate')
     location: str
     participants: List[str]
+    status: Optional[TripStatus] = TripStatus.UPCOMING
+    cover_image_url: Optional[str] = Field(None, alias='coverImageUrl')
+    cover_image_thumbnail_url: Optional[str] = Field(None, alias='coverImageThumbnailUrl')
+    cover_image_resized_url: Optional[str] = Field(None, alias='coverImageResizedUrl')
+    budget: Optional[float] = None
     
 class TripUpdate(BaseModel):
     model_config = ConfigDict(populate_by_name=True)

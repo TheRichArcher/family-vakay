@@ -285,8 +285,12 @@ class TripsService:
             'participants': list(participants),
             'createdAt': datetime.utcnow(),
             'updatedAt': datetime.utcnow(),
-            'status': schemas.TripStatus.PLANNING.value
         }
+        new_trip_data['status'] = (
+            trip_data.status.value
+            if isinstance(trip_data.status, schemas.TripStatus)
+            else trip_data.status or schemas.TripStatus.UPCOMING.value
+        )
         
         # Normalize dates to ISO yyyy-mm-dd strings for Firestore compatibility
         start_value = new_trip_data.get('startDate')

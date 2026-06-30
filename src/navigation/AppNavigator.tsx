@@ -46,6 +46,7 @@ export type AuthStackParamList = {
 
 export type TripsStackParamList = {
   TripsList: undefined;
+  CreateTrip: undefined;
   TripDetail: { tripId: string; updatedFromEdit?: boolean };
   CreateActivity: { tripId: string };
   EditActivity: { activity: Activity };
@@ -72,6 +73,7 @@ export type AdminStackParamList = {
   AdminDashboard: undefined;
   AdminFamily: undefined;
   AdminManageTrips: undefined;
+  CreateTrip: undefined;
   AdminScavengerHunt: undefined;
   AdminManageTripActivities: { tripId: string };
   CreateActivity: { tripId: string };
@@ -131,6 +133,7 @@ const SignOutButton = () => {
 const TripsStack = () => (
   <TripsStackNav.Navigator screenOptions={{ headerTitle: () => <LogoTitle />, headerRight: () => <SignOutButton /> }}>
     <TripsStackNav.Screen name="TripsList" component={TripsScreen} options={{ title: 'My Trips' }} />
+    <TripsStackNav.Screen name="CreateTrip" component={CreateTripScreen} options={{ title: 'Create a New Trip' }} />
     <TripsStackNav.Screen name="TripDetail" component={TripDetailScreen} />
     <TripsStackNav.Screen name="CreateActivity" component={CreateActivityScreen} options={{ title: 'Add an Activity' }} />
     <TripsStackNav.Screen name="EditActivity" component={EditActivityScreen} options={{ title: 'Edit Activity' }} />
@@ -163,6 +166,7 @@ const AdminStack = () => (
     <AdminStackNav.Screen name="AdminDashboard" component={AdminDashboardScreen} options={{ title: 'Admin Dashboard' }} />
     <AdminStackNav.Screen name="AdminFamily" component={AdminFamilyScreen} options={{ title: 'Manage Family' }} />
     <AdminStackNav.Screen name="AdminManageTrips" component={AdminManageTripsScreen} options={{ title: 'Manage Trips' }} />
+    <AdminStackNav.Screen name="CreateTrip" component={CreateTripScreen} options={{ title: 'Create a New Trip' }} />
     <AdminStackNav.Screen name="AdminScavengerHunt" component={AdminScavengerHuntScreen} options={{ title: 'Scavenger Hunt' }} />
     <AdminStackNav.Screen name="AdminManageTripActivities" component={AdminManageTripActivitiesScreen} options={{ title: 'Manage Activities' }} />
     <AdminStackNav.Screen name="CreateActivity" component={CreateActivityScreen} options={{ title: 'Add an Activity' }} />

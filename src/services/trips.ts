@@ -9,7 +9,7 @@ export interface Trip {
   startDate: string;
   endDate: string;
   location: string;
-  status: 'upcoming' | 'in-progress' | 'completed';
+  status: 'planning' | 'upcoming' | 'in-progress' | 'completed' | 'cancelled';
   participants: string[];
   ownerId: string;
   coverImageUrl?: string | null; // storage path or full URL (legacy)
@@ -189,4 +189,4 @@ export const tripsService = {
       throw error;
     }
   }
-}; 
+};
