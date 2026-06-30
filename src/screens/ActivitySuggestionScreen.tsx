@@ -3,15 +3,10 @@ import { View, Text, StyleSheet, FlatList, Alert } from 'react-native';
 import { RouteProp, useRoute } from '@react-navigation/native';
 import { colors } from '../theme/colors';
 import InterestsSurvey from '../components/InterestsSurvey';
-import { aiService } from '../services/aiService';
+import { ActivitySuggestion, aiService } from '../services/aiService';
 import { TripsStackParamList } from '../navigation/AppNavigator';
 
 type ActivitySuggestionRouteProp = RouteProp<TripsStackParamList, 'ActivitySuggestion'>;
-
-interface ActivitySuggestion {
-  id: string;
-  title: string;
-}
 
 const ActivitySuggestionScreen = () => {
   const route = useRoute<ActivitySuggestionRouteProp>();
@@ -33,9 +28,11 @@ const ActivitySuggestionScreen = () => {
     setIsLoading(true);
     try {
       const response = await aiService.suggestActivities(tripId, interests);
-      // Assuming the response.text is a stringified JSON array of suggestions
-      // e.g. '[{"id":"1","title":"Visit a famous museum"},{"id":"2","title":"Try a local food tour"}]'
-      const parsedSuggestions = JSON.parse(response.text) as ActivitySuggestion[];
+      const parsed = response.suggestions || JSON.parse(response.text);
+      const parsedSuggestions = (Array.isArray(parsed) ? parsed : parsed.suggestions) as ActivitySuggestion[];
+      if (!Array.isArray(parsedSuggestions) || parsedSuggestions.length === 0) {
+        throw new Error('No suggestions returned');
+      }
       setSuggestions(parsedSuggestions);
       setShowSurvey(false);
     } catch (error) {
@@ -66,7 +63,16 @@ const ActivitySuggestionScreen = () => {
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => (
               <View style={styles.suggestionItem}>
-                <Text>{item.title}</Text>
+                <View style={styles.suggestionHeader}>
+                  <Text style={styles.suggestionTitle}>{item.title}</Text>
+                  {!!item.category && <Text style={styles.categoryPill}>{item.category}</Text>}
+                </View>
+                {!!item.why && <Text style={styles.suggestionText}>{item.why}</Text>}
+                <View style={styles.metaRow}>
+                  {!!item.kidFit && <Text style={styles.metaText}>{item.kidFit}</Text>}
+                  {!!item.costLevel && <Text style={styles.metaText}>{item.costLevel}</Text>}
+                  {!!item.timeNeeded && <Text style={styles.metaText}>{item.timeNeeded}</Text>}
+                </View>
               </View>
             )}
           />
@@ -100,6 +106,40 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     marginBottom: 10,
     backgroundColor: colors.white,
+  },
+  suggestionHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 10,
+    marginBottom: 8,
+  },
+  suggestionTitle: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  categoryPill: {
+    color: colors.primary,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  suggestionText: {
+    color: colors.textSecondary,
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 10,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  metaText: {
+    color: colors.textSecondary,
+    fontSize: 12,
+    fontWeight: '600',
   },
 });
 

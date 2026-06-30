@@ -1,4 +1,5 @@
-from typing import List
+import json
+from typing import Any, List
 
 def sanitize_input(text: str) -> str:
     """
@@ -180,27 +181,52 @@ def construct_joke_fact_prompt(location: str, user_age: int | str, history_list:
     """
     return prompt
 
-def construct_activity_suggestion_prompt(location: str, context: str, user_age: int | str) -> str:
+def construct_activity_suggestion_prompt(
+    location: str,
+    context: str,
+    user_age: int | str,
+    trip_context: dict[str, Any] | None = None,
+) -> str:
+    context_json = "{}"
+    if trip_context:
+        context_json = sanitize_input(json.dumps(trip_context, default=str))
+
     return f"""
-    You are a friendly and age-appropriate activity coach in a family vacation app.
+    You are a practical, age-aware activity recommender in a family vacation app.
 
-    A {user_age}-year-old is on vacation in {location}, and they said:
-    "I'm bored. I'm currently {context}."
+    Trip location: {sanitize_input(location)}
+    Requesting user age: {user_age}
+    User request/context: {sanitize_input(context)}
 
-    🎯 Your task:
-    Suggest ONE simple, fun, and creative activity they can do **right now**, tailored specifically to a {user_age}-year-old.
+    Trip context:
+    {context_json}
 
-    ⚠️ Do NOT suggest anything too childish or too advanced for their age.
-    🚫 Do NOT suggest scavenger hunts.
+    Your job:
+    Suggest 5 genuinely useful family vacation activities. Use the trip location, trip dates, budget, existing saved activities, selected interests, participant ages, and the requesting user's age.
 
-    💡 Think about what kids this age enjoy. Here are example activity types by age group:
-    - Ages 5–7: drawing animals, silly movement games, spotting shapes, rhyming, telling imaginative stories
-    - Ages 8–10: doodling challenges, made-up games, guessing things nearby, cartoon voices, simple photo tasks
-    - Ages 11–13: creative challenges, observation games, writing prompts, emoji design, mini competitions
-    - Ages 14–17: clever photo ideas, ironic storytelling, fake conspiracy games, creative ranking lists, themed playlists
+    Rules:
+    - Do not suggest scavenger hunts.
+    - Do not duplicate existing saved activities.
+    - Prefer realistic ideas over generic filler.
+    - If exact local venues are unknown, suggest a specific activity type tied to the destination instead of inventing fake business names.
+    - Match the tone and maturity to the participant ages.
+    - Respect the budget if provided.
+    - Include a mix of food, active, relaxed, indoor/outdoor, and flexible ideas when possible.
 
-    ✍️ Format:
-    Reply in 1–2 short, fun sentences. End with ONE emoji. Do not include anything else.
+    Return ONLY valid JSON in this exact shape:
+    {{
+      "suggestions": [
+        {{
+          "id": "1",
+          "title": "Short activity title",
+          "category": "Food | Active | Relaxed | Tourist | Rainy Day | Flexible",
+          "why": "One short reason this fits this trip.",
+          "kidFit": "Who this is best for, using ages when useful.",
+          "costLevel": "$ | $$ | $$$ | Free",
+          "timeNeeded": "30 min | 1-2 hours | Half day | Flexible"
+        }}
+      ]
+    }}
     """
 
 def construct_story_prompt(location: str, keywords: List[str], user_age: int | str) -> str:
@@ -222,4 +248,4 @@ def construct_story_prompt(location: str, keywords: List[str], user_age: int | s
     Do **not** include scary or intense content.
     Do **not** include introductions, disclaimers, or extra commentary — just tell the story.
     Keep it short: under 300 words.
-    """ 
+    """

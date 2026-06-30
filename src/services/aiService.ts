@@ -2,6 +2,40 @@ import apiClient from '../utils/apiClient';
 
 export interface AIResponse {
   text: string;
+  suggestions?: ActivitySuggestion[];
+}
+
+export interface ActivitySuggestion {
+  id: string;
+  title: string;
+  category?: string;
+  why?: string;
+  kidFit?: string;
+  costLevel?: string;
+  timeNeeded?: string;
+}
+
+const parseSuggestions = (response: AIResponse): ActivitySuggestion[] => {
+  if (Array.isArray(response.suggestions)) {
+    return response.suggestions;
+  }
+  try {
+    const parsed = JSON.parse(response.text);
+    if (Array.isArray(parsed)) {
+      return parsed;
+    }
+    if (Array.isArray(parsed?.suggestions)) {
+      return parsed.suggestions;
+    }
+  } catch {
+    // Preserve existing fallback behavior for non-JSON AI responses.
+  }
+  return [];
+};
+
+const formatSuggestionForInline = (suggestion: ActivitySuggestion): string => {
+  const detail = suggestion.why ? ` ${suggestion.why}` : '';
+  return `${suggestion.title}.${detail}`.trim();
 }
 
 export const aiService = {
@@ -13,6 +47,14 @@ export const aiService = {
   async suggestActivity(tripId: string, context?: string): Promise<AIResponse> {
     const payload = { context: context || 'anywhere' };
     const response = await apiClient.post<AIResponse>(`/api/v1/ai/trips/${tripId}/suggest-activity`, payload);
+    const suggestions = parseSuggestions(response.data);
+    if (suggestions.length > 0) {
+      return {
+        ...response.data,
+        text: formatSuggestionForInline(suggestions[0]),
+        suggestions,
+      };
+    }
     return response.data;
   },
 

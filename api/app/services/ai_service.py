@@ -323,10 +323,75 @@ class AIService:
 
     async def suggest_activity(self, trip_id: str, context: str, current_user: dict) -> dict:
         trips_service = TripsService()
+        activities_service = ActivitiesService()
+        user_service = UserService()
+
         trip = await trips_service.get_trip_by_id(trip_id, current_user)
-        location = trip.location or 'our vacation spot'
-        user_age = current_user.get('age', 7)
-        prompt = construct_activity_suggestion_prompt(location, context, user_age)
+        trip_payload = trip.model_dump(by_alias=True) if hasattr(trip, "model_dump") else dict(trip)
+        location = trip_payload.get("location") or 'our vacation spot'
+
+        user_profile = await user_service.get_user_profile(current_user["uid"])
+        user_age = (user_profile or {}).get("age") or current_user.get('age') or 7
+
+        participants = []
+        participant_ids = trip_payload.get("participants") or []
+        try:
+            participant_profiles = await user_service.get_users_by_ids(participant_ids)
+            participants = [
+                {
+                    "uid": profile.get("uid"),
+                    "name": profile.get("name"),
+                    "role": profile.get("role"),
+                    "age": profile.get("age"),
+                    "isKid": profile.get("isKid") if "isKid" in profile else profile.get("is_kid"),
+                }
+                for profile in participant_profiles
+            ]
+        except Exception:
+            logging.warning(
+                "Could not load participant profiles for activity suggestions",
+                extra={"trip_id": trip_id},
+                exc_info=True,
+            )
+
+        existing_activities = []
+        try:
+            activities = await activities_service.get_activities_for_trip(trip_id, current_user)
+            existing_activities = [
+                {
+                    "name": activity.get("name"),
+                    "description": activity.get("description"),
+                    "date": str(activity.get("date")) if activity.get("date") else None,
+                    "time": activity.get("time"),
+                    "location": activity.get("location"),
+                    "category": activity.get("activityTypes") or activity.get("activity_types"),
+                    "budget": activity.get("budget") or activity.get("cost"),
+                    "isBooked": activity.get("isBooked") if "isBooked" in activity else activity.get("is_booked"),
+                }
+                for activity in activities[:25]
+            ]
+        except Exception:
+            logging.warning(
+                "Could not load existing activities for activity suggestions",
+                extra={"trip_id": trip_id},
+                exc_info=True,
+            )
+
+        trip_context = {
+            "trip": {
+                "name": trip_payload.get("name"),
+                "description": trip_payload.get("description"),
+                "location": trip_payload.get("location"),
+                "startDate": str(trip_payload.get("startDate") or trip_payload.get("start_date")),
+                "endDate": str(trip_payload.get("endDate") or trip_payload.get("end_date")),
+                "budget": trip_payload.get("budget"),
+                "status": trip_payload.get("status"),
+            },
+            "participants": participants,
+            "existingActivities": existing_activities,
+        }
+
+        prompt = construct_activity_suggestion_prompt(location, context, user_age, trip_context)
 
         try:
             if not self.client:
@@ -335,10 +400,34 @@ class AIService:
                 model=self.model,
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.7,
-                max_tokens=150,
+                response_format={"type": "json_object"},
+                max_tokens=1200,
             )
             content = response.choices[0].message.content.strip()
-            return {"text": content}
+            parsed = _extract_json_from_string(content)
+            suggestions = (parsed or {}).get("suggestions")
+            if not isinstance(suggestions, list):
+                logging.error(f"AI activity suggestion response was not a suggestions list: {content}")
+                raise Exception("The AI returned malformed suggestions.")
+            normalized = []
+            for index, suggestion in enumerate(suggestions[:5], start=1):
+                if not isinstance(suggestion, dict):
+                    continue
+                title = str(suggestion.get("title") or "").strip()
+                if not title:
+                    continue
+                normalized.append({
+                    "id": str(suggestion.get("id") or index),
+                    "title": title,
+                    "category": str(suggestion.get("category") or "Flexible"),
+                    "why": str(suggestion.get("why") or ""),
+                    "kidFit": str(suggestion.get("kidFit") or suggestion.get("kid_fit") or ""),
+                    "costLevel": str(suggestion.get("costLevel") or suggestion.get("cost_level") or ""),
+                    "timeNeeded": str(suggestion.get("timeNeeded") or suggestion.get("time_needed") or ""),
+                })
+            if not normalized:
+                raise Exception("The AI returned empty suggestions.")
+            return {"text": json.dumps(normalized), "suggestions": normalized}
         except Exception as e:
             logging.error(f"Error generating activity suggestion from OpenAI for trip {trip_id}: {e}")
             raise Exception("My creativity is running low. Please try again!")
@@ -364,4 +453,4 @@ class AIService:
             return {"text": content}
         except Exception as e:
             logging.error(f"Error generating story from OpenAI: {e}")
-            raise Exception("My storytelling machine is snoozing. Please try again!") 
+            raise Exception("My storytelling machine is snoozing. Please try again!")
