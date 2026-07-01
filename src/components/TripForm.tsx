@@ -14,6 +14,7 @@ import {
 import { colors } from '../theme/colors';
 import { ItineraryStop, Trip, TripData } from '../services/trips';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { Picker } from '@react-native-picker/picker';
 import { useAuth } from '../contexts/AuthContext';
 import * as ImagePicker from 'expo-image-picker';
 import { userService, UserProfile } from '../services/userService';
@@ -26,6 +27,11 @@ interface TripFormProps {
 }
 
 const DEFAULT_TRIP_DATE = new Date(2026, 6, 5);
+const MONTH_OPTIONS = Array.from({ length: 12 }, (_, index) => index + 1);
+const DAY_OPTIONS = Array.from({ length: 31 }, (_, index) => index + 1);
+const HOUR_OPTIONS = Array.from({ length: 12 }, (_, index) => index + 1);
+const MINUTE_OPTIONS = Array.from({ length: 12 }, (_, index) => String(index * 5).padStart(2, '0'));
+const MERIDIEM_OPTIONS = ['AM', 'PM'] as const;
 
 const formatToYYYYMMDD = (date: Date) => {
   const year = date.getFullYear();
@@ -160,6 +166,62 @@ const formatItineraryTime = (value?: string | null) => {
   }
 
   return undefined;
+};
+
+const getYearOptions = (baseYear: number) => (
+  Array.from({ length: 9 }, (_, index) => baseYear - 1 + index)
+);
+
+const getDateParts = (value: string, defaultDate: Date) => {
+  const parsed = parseFlexibleDateInput(value, defaultDate.getFullYear()) || defaultDate;
+  return {
+    month: parsed.getMonth() + 1,
+    day: parsed.getDate(),
+    year: parsed.getFullYear(),
+  };
+};
+
+const getDaysInMonth = (year: number, month: number) => new Date(year, month, 0).getDate();
+
+const setDatePart = (
+  value: string,
+  defaultDate: Date,
+  part: 'month' | 'day' | 'year',
+  nextValue: number,
+) => {
+  const current = getDateParts(value, defaultDate);
+  const next = { ...current, [part]: nextValue };
+  next.day = Math.min(next.day, getDaysInMonth(next.year, next.month));
+  return formatToUSDate(new Date(next.year, next.month - 1, next.day));
+};
+
+const getTimeParts = (value?: string | null) => {
+  const formatted = formatItineraryTime(value);
+  if (!formatted) {
+    return undefined;
+  }
+
+  const match = formatted.match(/^(\d{1,2}):(\d{2})\s(AM|PM)$/);
+  if (!match) {
+    return undefined;
+  }
+
+  return {
+    hour: Number(match[1]),
+    minute: match[2],
+    meridiem: match[3] as typeof MERIDIEM_OPTIONS[number],
+  };
+};
+
+const buildTimeValue = (
+  parts: { hour?: number; minute?: string; meridiem?: typeof MERIDIEM_OPTIONS[number] },
+  fallback?: string | null,
+) => {
+  const current = getTimeParts(fallback) || { hour: 12, minute: '00', meridiem: 'PM' as const };
+  const hour = parts.hour ?? current.hour;
+  const minute = parts.minute ?? current.minute;
+  const meridiem = parts.meridiem ?? current.meridiem;
+  return `${hour}:${minute} ${meridiem}`;
 };
 
 export function TripForm({ initialValues, onSubmit, onCancel, isLoading: externalLoading }: TripFormProps) {
@@ -310,34 +372,6 @@ export function TripForm({ initialValues, onSubmit, onCancel, isLoading: externa
 
   const removeItineraryStop = (id: string) => {
     setItinerary(prev => prev.filter(stop => stop.id !== id));
-  };
-
-  const normalizeItineraryDate = (id: string, value: string) => {
-    if (!value.trim()) {
-      return;
-    }
-
-    const parsed = parseFlexibleDateInput(value, startDate.getFullYear());
-    if (!parsed) {
-      Alert.alert('Invalid Date', 'Use a date like 7/5, 7-5, 7/5/26, or 2026-07-05.');
-      return;
-    }
-
-    updateItineraryStop(id, { date: formatToUSDate(parsed) });
-  };
-
-  const normalizeItineraryTime = (id: string, field: 'arrivalTime' | 'departureTime', value?: string | null) => {
-    if (!value?.trim()) {
-      return;
-    }
-
-    const parsed = formatItineraryTime(value);
-    if (!parsed) {
-      Alert.alert('Invalid Time', 'Use AM/PM like 12:00 PM or a clear 24-hour time like 14:30. Plain 12:00 is ambiguous.');
-      return;
-    }
-
-    updateItineraryStop(id, { [field]: parsed });
   };
 
   const pickImage = async () => {
@@ -550,6 +584,147 @@ export function TripForm({ initialValues, onSubmit, onCancel, isLoading: externa
     );
   };
 
+  const renderItineraryDateControl = (stop: ItineraryStop, index: number) => {
+    const parts = getDateParts(stop.date, startDate);
+    const yearOptions = getYearOptions(startDate.getFullYear());
+
+    return (
+      <View style={styles.structuredField}>
+        <Text style={styles.compactLabel}>Date</Text>
+        <View style={styles.dateSelectRow}>
+          <View style={styles.selectShell}>
+            <Picker
+              enabled={!isLoading}
+              selectedValue={parts.month}
+              testID={`itinerary-${index}-month`}
+              onValueChange={(value) => updateItineraryStop(stop.id, {
+                date: setDatePart(stop.date, startDate, 'month', Number(value)),
+              })}
+            >
+              {MONTH_OPTIONS.map(month => (
+                <Picker.Item key={month} label={String(month).padStart(2, '0')} value={month} />
+              ))}
+            </Picker>
+          </View>
+          <View style={styles.selectShell}>
+            <Picker
+              enabled={!isLoading}
+              selectedValue={parts.day}
+              testID={`itinerary-${index}-day`}
+              onValueChange={(value) => updateItineraryStop(stop.id, {
+                date: setDatePart(stop.date, startDate, 'day', Number(value)),
+              })}
+            >
+              {DAY_OPTIONS.map(day => (
+                <Picker.Item key={day} label={String(day).padStart(2, '0')} value={day} />
+              ))}
+            </Picker>
+          </View>
+          <View style={[styles.selectShell, styles.yearSelectShell]}>
+            <Picker
+              enabled={!isLoading}
+              selectedValue={parts.year}
+              testID={`itinerary-${index}-year`}
+              onValueChange={(value) => updateItineraryStop(stop.id, {
+                date: setDatePart(stop.date, startDate, 'year', Number(value)),
+              })}
+            >
+              {yearOptions.map(year => (
+                <Picker.Item key={year} label={String(year)} value={year} />
+              ))}
+            </Picker>
+          </View>
+        </View>
+      </View>
+    );
+  };
+
+  const renderItineraryTimeControl = (
+    stop: ItineraryStop,
+    index: number,
+    field: 'arrivalTime' | 'departureTime',
+    label: string,
+  ) => {
+    const parts = getTimeParts(stop[field]);
+    if (!parts) {
+      return (
+        <View style={styles.timeControl}>
+          <Text style={styles.compactLabel}>{label}</Text>
+          <TouchableOpacity
+            style={[styles.setTimeButton, isLoading && styles.buttonDisabled]}
+            disabled={isLoading}
+            testID={`itinerary-${index}-${field}-set`}
+            onPress={() => updateItineraryStop(stop.id, { [field]: '12:00 PM' })}
+          >
+            <Text style={styles.setTimeButtonText}>Set {label.toLowerCase()} time</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    const timeValue = parts;
+
+    return (
+      <View style={styles.timeControl}>
+        <View style={styles.timeControlHeader}>
+          <Text style={styles.compactLabel}>{label}</Text>
+          {!!parts && (
+            <TouchableOpacity
+              onPress={() => updateItineraryStop(stop.id, { [field]: undefined })}
+              disabled={isLoading}
+            >
+              <Text style={styles.clearTimeText}>Clear</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+        <View style={styles.timeSelectRow}>
+          <View style={styles.timeSelectShell}>
+            <Picker
+              enabled={!isLoading}
+              selectedValue={timeValue.hour}
+              testID={`itinerary-${index}-${field}-hour`}
+              onValueChange={(value) => updateItineraryStop(stop.id, {
+                [field]: buildTimeValue({ hour: Number(value) }, stop[field]),
+              })}
+            >
+              {HOUR_OPTIONS.map(hour => (
+                <Picker.Item key={hour} label={String(hour)} value={hour} />
+              ))}
+            </Picker>
+          </View>
+          <View style={styles.timeSelectShell}>
+            <Picker
+              enabled={!isLoading}
+              selectedValue={timeValue.minute}
+              testID={`itinerary-${index}-${field}-minute`}
+              onValueChange={(value) => updateItineraryStop(stop.id, {
+                [field]: buildTimeValue({ minute: String(value) }, stop[field]),
+              })}
+            >
+              {MINUTE_OPTIONS.map(minute => (
+                <Picker.Item key={minute} label={minute} value={minute} />
+              ))}
+            </Picker>
+          </View>
+          <View style={styles.timeSelectShell}>
+            <Picker
+              enabled={!isLoading}
+              selectedValue={timeValue.meridiem}
+              testID={`itinerary-${index}-${field}-meridiem`}
+              onValueChange={(value) => updateItineraryStop(stop.id, {
+                [field]: buildTimeValue({ meridiem: value as typeof MERIDIEM_OPTIONS[number] }, stop[field]),
+              })}
+            >
+              {MERIDIEM_OPTIONS.map(meridiem => (
+                <Picker.Item key={meridiem} label={meridiem} value={meridiem} />
+              ))}
+            </Picker>
+          </View>
+        </View>
+      </View>
+    );
+  };
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -678,15 +853,7 @@ export function TripForm({ initialValues, onSubmit, onCancel, isLoading: externa
                       placeholder={stop.type === 'sea' ? 'Travel day or At Sea' : 'City, park, resort, or port name'}
                       editable={!isLoading}
                     />
-                    <TextInput
-                      style={styles.input}
-                      value={stop.date}
-                      onChangeText={(value) => updateItineraryStop(stop.id, { date: value })}
-                      onBlur={() => normalizeItineraryDate(stop.id, stop.date)}
-                      placeholder="Date (7/5, 7-5, 7/5/26)"
-                      keyboardType="numbers-and-punctuation"
-                      editable={!isLoading}
-                    />
+                    {renderItineraryDateControl(stop, index)}
                     <TextInput
                       style={styles.input}
                       value={stop.location || ''}
@@ -695,24 +862,8 @@ export function TripForm({ initialValues, onSubmit, onCancel, isLoading: externa
                       editable={!isLoading}
                     />
                     <View style={styles.timeRow}>
-                      <TextInput
-                        style={[styles.input, styles.timeInput]}
-                        value={stop.arrivalTime || ''}
-                        onChangeText={(value) => updateItineraryStop(stop.id, { arrivalTime: value })}
-                        onBlur={() => normalizeItineraryTime(stop.id, 'arrivalTime', stop.arrivalTime)}
-                        placeholder="Arrive, 12:00 PM"
-                        keyboardType="numbers-and-punctuation"
-                        editable={!isLoading}
-                      />
-                      <TextInput
-                        style={[styles.input, styles.timeInput]}
-                        value={stop.departureTime || ''}
-                        onChangeText={(value) => updateItineraryStop(stop.id, { departureTime: value })}
-                        onBlur={() => normalizeItineraryTime(stop.id, 'departureTime', stop.departureTime)}
-                        placeholder="Depart, 2:30 PM"
-                        keyboardType="numbers-and-punctuation"
-                        editable={!isLoading}
-                      />
+                      {renderItineraryTimeControl(stop, index, 'arrivalTime', 'Arrive')}
+                      {renderItineraryTimeControl(stop, index, 'departureTime', 'Depart')}
                     </View>
                     <TextInput
                       style={[styles.input, styles.compactTextArea]}
@@ -1000,10 +1151,71 @@ const styles = StyleSheet.create({
   },
   timeRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 10,
+    marginBottom: 16,
   },
-  timeInput: {
+  structuredField: {
+    marginBottom: 16,
+  },
+  dateSelectRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  selectShell: {
     flex: 1,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    backgroundColor: colors.surface,
+    minHeight: 48,
+    justifyContent: 'center',
+  },
+  yearSelectShell: {
+    flex: 1.35,
+  },
+  timeControl: {
+    flex: 1,
+    minWidth: 220,
+  },
+  timeControlHeader: {
+    minHeight: 20,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  timeSelectRow: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  timeSelectShell: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    backgroundColor: colors.surface,
+    minHeight: 48,
+    justifyContent: 'center',
+  },
+  setTimeButton: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    backgroundColor: colors.background,
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+  },
+  setTimeButtonText: {
+    color: colors.primary,
+    fontWeight: '700',
+  },
+  clearTimeText: {
+    color: colors.error,
+    fontSize: 12,
+    fontWeight: '700',
   },
   compactTextArea: {
     minHeight: 70,
