@@ -596,6 +596,7 @@ export function TripForm({ initialValues, onSubmit, onCancel, isLoading: externa
             <Picker
               enabled={!isLoading}
               selectedValue={parts.month}
+              style={styles.compactPicker}
               testID={`itinerary-${index}-month`}
               onValueChange={(value) => updateItineraryStop(stop.id, {
                 date: setDatePart(stop.date, startDate, 'month', Number(value)),
@@ -606,10 +607,12 @@ export function TripForm({ initialValues, onSubmit, onCancel, isLoading: externa
               ))}
             </Picker>
           </View>
+          <Text style={styles.dateSeparator}>/</Text>
           <View style={styles.selectShell}>
             <Picker
               enabled={!isLoading}
               selectedValue={parts.day}
+              style={styles.compactPicker}
               testID={`itinerary-${index}-day`}
               onValueChange={(value) => updateItineraryStop(stop.id, {
                 date: setDatePart(stop.date, startDate, 'day', Number(value)),
@@ -620,10 +623,12 @@ export function TripForm({ initialValues, onSubmit, onCancel, isLoading: externa
               ))}
             </Picker>
           </View>
+          <Text style={styles.dateSeparator}>/</Text>
           <View style={[styles.selectShell, styles.yearSelectShell]}>
             <Picker
               enabled={!isLoading}
               selectedValue={parts.year}
+              style={styles.compactPicker}
               testID={`itinerary-${index}-year`}
               onValueChange={(value) => updateItineraryStop(stop.id, {
                 date: setDatePart(stop.date, startDate, 'year', Number(value)),
@@ -682,6 +687,7 @@ export function TripForm({ initialValues, onSubmit, onCancel, isLoading: externa
             <Picker
               enabled={!isLoading}
               selectedValue={timeValue.hour}
+              style={styles.compactPicker}
               testID={`itinerary-${index}-${field}-hour`}
               onValueChange={(value) => updateItineraryStop(stop.id, {
                 [field]: buildTimeValue({ hour: Number(value) }, stop[field]),
@@ -696,6 +702,7 @@ export function TripForm({ initialValues, onSubmit, onCancel, isLoading: externa
             <Picker
               enabled={!isLoading}
               selectedValue={timeValue.minute}
+              style={styles.compactPicker}
               testID={`itinerary-${index}-${field}-minute`}
               onValueChange={(value) => updateItineraryStop(stop.id, {
                 [field]: buildTimeValue({ minute: String(value) }, stop[field]),
@@ -710,6 +717,7 @@ export function TripForm({ initialValues, onSubmit, onCancel, isLoading: externa
             <Picker
               enabled={!isLoading}
               selectedValue={timeValue.meridiem}
+              style={styles.compactPicker}
               testID={`itinerary-${index}-${field}-meridiem`}
               onValueChange={(value) => updateItineraryStop(stop.id, {
                 [field]: buildTimeValue({ meridiem: value as typeof MERIDIEM_OPTIONS[number] }, stop[field]),
@@ -1160,23 +1168,39 @@ const styles = StyleSheet.create({
   },
   dateSelectRow: {
     flexDirection: 'row',
-    gap: 8,
+    alignItems: 'center',
+    gap: 6,
   },
   selectShell: {
-    flex: 1,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 8,
     backgroundColor: colors.surface,
-    minHeight: 48,
+    height: 44,
+    width: 86,
     justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  compactPicker: {
+    height: 44,
+    width: '100%',
+    color: colors.text,
+    fontSize: 15,
+    backgroundColor: colors.surface,
+  },
+  dateSeparator: {
+    color: colors.textSecondary,
+    fontSize: 16,
+    fontWeight: '700',
   },
   yearSelectShell: {
-    flex: 1.35,
+    width: 112,
   },
   timeControl: {
-    flex: 1,
-    minWidth: 220,
+    flexGrow: 0,
+    flexShrink: 1,
+    width: 300,
+    maxWidth: '100%',
   },
   timeControlHeader: {
     minHeight: 20,
@@ -1190,23 +1214,25 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   timeSelectShell: {
-    flex: 1,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 8,
     backgroundColor: colors.surface,
-    minHeight: 48,
+    height: 44,
+    width: 82,
     justifyContent: 'center',
+    overflow: 'hidden',
   },
   setTimeButton: {
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 8,
     backgroundColor: colors.background,
-    minHeight: 48,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 12,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 16,
   },
   setTimeButtonText: {
     color: colors.primary,
