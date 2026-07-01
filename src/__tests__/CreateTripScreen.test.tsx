@@ -115,7 +115,7 @@ describe('CreateTripScreen', () => {
   });
 
   it('submits itinerary stop dates in API format from US date inputs', async () => {
-    const { getByPlaceholderText, getByText, queryByText } = render(<CreateTripScreen />);
+    const { getAllByPlaceholderText, getByPlaceholderText, getByText, queryByText } = render(<CreateTripScreen />);
 
     await waitFor(() => expect(queryByText('Participants')).toBeTruthy());
 
@@ -124,6 +124,9 @@ describe('CreateTripScreen', () => {
     fireEvent.changeText(getByPlaceholderText('e.g., Denver, CO'), 'Bermuda');
     fireEvent.press(getByText('Multiple Locations'));
     fireEvent.press(getByText('Add Stop'));
+    fireEvent.changeText(getAllByPlaceholderText('Date (7/5, 7-5, 7/5/26)')[0], '26-7-5');
+    fireEvent.changeText(getByPlaceholderText('Arrive, 12:00 PM'), '14:30');
+    fireEvent.changeText(getByPlaceholderText('Depart, 2:30 PM'), '12p');
     fireEvent.press(getByText('Save'));
 
     const { tripsService } = require('../services/trips');
@@ -135,6 +138,8 @@ describe('CreateTripScreen', () => {
             expect.objectContaining({
               date: '2026-07-05',
               portName: 'Bermuda',
+              arrivalTime: '2:30 PM',
+              departureTime: '12:00 PM',
             }),
           ],
         }),

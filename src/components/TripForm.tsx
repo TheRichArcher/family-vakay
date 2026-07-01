@@ -27,19 +27,6 @@ interface TripFormProps {
 
 const DEFAULT_TRIP_DATE = new Date(2026, 6, 5);
 
-const parseDateValue = (value?: string) => {
-  if (!value) {
-    return new Date(DEFAULT_TRIP_DATE);
-  }
-
-  const [year, month, day] = value.split('-').map(Number);
-  if (!year || !month || !day) {
-    return new Date(DEFAULT_TRIP_DATE);
-  }
-
-  return new Date(year, month - 1, day);
-};
-
 const formatToYYYYMMDD = (date: Date) => {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -54,39 +41,81 @@ const formatToUSDate = (date: Date) => {
   return `${month}-${day}-${year}`;
 };
 
-const parseUSDateInput = (value: string) => {
-  const trimmed = value.trim();
-  const usMatch = trimmed.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
-  const isoMatch = trimmed.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
-
-  const parts = usMatch
-    ? { month: Number(usMatch[1]), day: Number(usMatch[2]), year: Number(usMatch[3]) }
-    : isoMatch
-      ? { month: Number(isoMatch[2]), day: Number(isoMatch[3]), year: Number(isoMatch[1]) }
-      : null;
-
-  if (!parts || parts.month < 1 || parts.month > 12 || parts.day < 1 || parts.day > 31) {
-    return undefined;
+const normalizeYear = (year: number) => {
+  if (year < 100) {
+    return 2000 + year;
   }
-
-  const parsed = new Date(parts.year, parts.month - 1, parts.day);
-  if (
-    parsed.getFullYear() !== parts.year ||
-    parsed.getMonth() !== parts.month - 1 ||
-    parsed.getDate() !== parts.day
-  ) {
-    return undefined;
-  }
-
-  return parsed;
+  return year;
 };
 
-const formatDateInputValue = (value?: string) => {
+const isRealDate = (year: number, month: number, day: number) => {
+  if (month < 1 || month > 12 || day < 1 || day > 31) {
+    return false;
+  }
+
+  const parsed = new Date(year, month - 1, day);
+  return (
+    parsed.getFullYear() === year &&
+    parsed.getMonth() === month - 1 &&
+    parsed.getDate() === day
+  );
+};
+
+const parseFlexibleDateInput = (value: string, defaultYear = DEFAULT_TRIP_DATE.getFullYear()) => {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+
+  const pieces = trimmed.split(/[./-]/).map(part => part.trim()).filter(Boolean);
+  if (pieces.length < 2 || pieces.length > 3 || pieces.some(part => !/^\d+$/.test(part))) {
+    return undefined;
+  }
+
+  let year = defaultYear;
+  let month = Number(pieces[0]);
+  let day = Number(pieces[1]);
+
+  if (pieces.length === 3) {
+    const first = Number(pieces[0]);
+    const second = Number(pieces[1]);
+    const third = Number(pieces[2]);
+    const firstLooksLikeYear = pieces[0].length === 4 || first > 12;
+
+    if (firstLooksLikeYear) {
+      year = normalizeYear(first);
+      month = second;
+      day = third;
+    } else {
+      month = first;
+      day = second;
+      year = normalizeYear(third);
+    }
+  }
+
+  if (!isRealDate(year, month, day)) {
+    return undefined;
+  }
+
+  return new Date(year, month - 1, day);
+};
+
+const parseDateValue = (value?: string) => {
+  if (!value) {
+    return new Date(DEFAULT_TRIP_DATE);
+  }
+
+  return parseFlexibleDateInput(value) || new Date(DEFAULT_TRIP_DATE);
+};
+
+const parseUSDateInput = (value: string, defaultYear?: number) => parseFlexibleDateInput(value, defaultYear);
+
+const formatDateInputValue = (value?: string, defaultYear?: number) => {
   if (!value) {
     return '';
   }
 
-  const parsedDate = parseUSDateInput(value);
+  const parsedDate = parseUSDateInput(value, defaultYear);
   if (parsedDate) {
     return formatToUSDate(parsedDate);
   }
@@ -94,28 +123,66 @@ const formatDateInputValue = (value?: string) => {
   return value;
 };
 
-const formatDateInputForSubmit = (value: string) => {
-  const parsedDate = parseUSDateInput(value);
-  return parsedDate ? formatToYYYYMMDD(parsedDate) : value;
+const formatDateInputForSubmit = (value: string, defaultYear?: number) => {
+  const parsedDate = parseUSDateInput(value, defaultYear);
+  return parsedDate ? formatToYYYYMMDD(parsedDate) : undefined;
+};
+
+const formatItineraryTime = (value?: string | null) => {
+  const trimmed = (value || '').trim();
+  if (!trimmed) {
+    return undefined;
+  }
+
+  const meridiemMatch = trimmed.match(/^(\d{1,2})(?::(\d{2}))?\s*([ap])(?:\.?m\.?)?$/i);
+  if (meridiemMatch) {
+    let hour = Number(meridiemMatch[1]);
+    const minute = Number(meridiemMatch[2] || '0');
+    const meridiem = meridiemMatch[3].toUpperCase() === 'A' ? 'AM' : 'PM';
+    if (hour < 1 || hour > 12 || minute < 0 || minute > 59) {
+      return undefined;
+    }
+    return `${hour}:${String(minute).padStart(2, '0')} ${meridiem}`;
+  }
+
+  const hour24Match = trimmed.match(/^(\d{1,2}):(\d{2})$/);
+  if (hour24Match) {
+    const hour = Number(hour24Match[1]);
+    const minute = Number(hour24Match[2]);
+    if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+      return undefined;
+    }
+    if (hour > 12 || hour === 0 || hour24Match[1].startsWith('0')) {
+      const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+      const meridiem = hour >= 12 ? 'PM' : 'AM';
+      return `${displayHour}:${String(minute).padStart(2, '0')} ${meridiem}`;
+    }
+  }
+
+  return undefined;
 };
 
 export function TripForm({ initialValues, onSubmit, onCancel, isLoading: externalLoading }: TripFormProps) {
   const { user } = useAuth();
+  const initialStartDateValue = parseDateValue(initialValues?.startDate);
+  const initialEndDateValue = parseDateValue(initialValues?.endDate);
   const [name, setName] = useState(initialValues?.name || '');
   const [description, setDescription] = useState(initialValues?.description || '');
   const [location, setLocation] = useState(initialValues?.location || '');
   const [budget, setBudget] = useState(initialValues?.budget?.toString() || '');
-  const [startDate, setStartDate] = useState(parseDateValue(initialValues?.startDate));
-  const [endDate, setEndDate] = useState(parseDateValue(initialValues?.endDate));
-  const [startDateInput, setStartDateInput] = useState(formatToUSDate(parseDateValue(initialValues?.startDate)));
-  const [endDateInput, setEndDateInput] = useState(formatToUSDate(parseDateValue(initialValues?.endDate)));
+  const [startDate, setStartDate] = useState(initialStartDateValue);
+  const [endDate, setEndDate] = useState(initialEndDateValue);
+  const [startDateInput, setStartDateInput] = useState(formatToUSDate(initialStartDateValue));
+  const [endDateInput, setEndDateInput] = useState(formatToUSDate(initialEndDateValue));
   const [status, setStatus] = useState<Trip['status']>(initialValues?.status || 'upcoming');
   const initialTripType = initialValues?.tripType === 'cruise' ? 'multiLocation' : (initialValues?.tripType || 'standard');
   const [tripType, setTripType] = useState<'standard' | 'multiLocation'>(initialTripType as 'standard' | 'multiLocation');
   const [itinerary, setItinerary] = useState<ItineraryStop[]>(
     initialValues?.itinerary?.map(stop => ({
       ...stop,
-      date: formatDateInputValue(stop.date),
+      date: formatDateInputValue(stop.date, initialStartDateValue.getFullYear()),
+      arrivalTime: formatItineraryTime(stop.arrivalTime) || stop.arrivalTime,
+      departureTime: formatItineraryTime(stop.departureTime) || stop.departureTime,
     })) || []
   );
   const [isSubmittingInternal, setIsSubmittingInternal] = useState(false);
@@ -245,6 +312,34 @@ export function TripForm({ initialValues, onSubmit, onCancel, isLoading: externa
     setItinerary(prev => prev.filter(stop => stop.id !== id));
   };
 
+  const normalizeItineraryDate = (id: string, value: string) => {
+    if (!value.trim()) {
+      return;
+    }
+
+    const parsed = parseFlexibleDateInput(value, startDate.getFullYear());
+    if (!parsed) {
+      Alert.alert('Invalid Date', 'Use a date like 7/5, 7-5, 7/5/26, or 2026-07-05.');
+      return;
+    }
+
+    updateItineraryStop(id, { date: formatToUSDate(parsed) });
+  };
+
+  const normalizeItineraryTime = (id: string, field: 'arrivalTime' | 'departureTime', value?: string | null) => {
+    if (!value?.trim()) {
+      return;
+    }
+
+    const parsed = formatItineraryTime(value);
+    if (!parsed) {
+      Alert.alert('Invalid Time', 'Use AM/PM like 12:00 PM or a clear 24-hour time like 14:30. Plain 12:00 is ambiguous.');
+      return;
+    }
+
+    updateItineraryStop(id, { [field]: parsed });
+  };
+
   const pickImage = async () => {
     if (isLoading) return;
     const { status: mediaLibraryStatus } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -279,21 +374,61 @@ export function TripForm({ initialValues, onSubmit, onCancel, isLoading: externa
       return;
     }
 
-    setIsSubmittingInternal(true);
-
     const ownerId = initialValues?.ownerId || user.uid;
     const participants = Array.from(new Set([...selectedParticipants, ownerId]));
-    const cleanItinerary = itinerary
-      .filter(stop => stop.date && stop.portName)
-      .map(stop => ({
-        ...stop,
-        date: formatDateInputForSubmit(stop.date),
-        portName: stop.type === 'sea' ? (stop.portName || 'At Sea') : stop.portName,
-        location: stop.location || undefined,
-        arrivalTime: stop.arrivalTime || undefined,
-        departureTime: stop.departureTime || undefined,
-        notes: stop.notes || undefined,
-      }));
+    const cleanItinerary: ItineraryStop[] = [];
+
+    if (tripType === 'multiLocation') {
+      for (let index = 0; index < itinerary.length; index += 1) {
+        const stop = itinerary[index];
+        const hasAnyStopData = Boolean(
+          stop.date ||
+          stop.portName ||
+          stop.location ||
+          stop.arrivalTime ||
+          stop.departureTime ||
+          stop.notes
+        );
+
+        if (!hasAnyStopData) {
+          continue;
+        }
+
+        const stopName = stop.type === 'sea' ? (stop.portName || 'At Sea') : stop.portName?.trim();
+        if (!stopName) {
+          Alert.alert('Missing Stop Name', `Add a name for itinerary day ${index + 1}.`);
+          return;
+        }
+
+        const formattedDate = formatDateInputForSubmit(stop.date, startDate.getFullYear());
+        if (!formattedDate) {
+          Alert.alert('Invalid Date', `Fix the date for itinerary day ${index + 1}. Use 7/5, 7-5, 7/5/26, or 2026-07-05.`);
+          return;
+        }
+
+        const arrivalTime = formatItineraryTime(stop.arrivalTime);
+        if (stop.arrivalTime && !arrivalTime) {
+          Alert.alert('Invalid Arrival Time', `Fix the arrival time for itinerary day ${index + 1}. Use AM/PM, like 12:00 PM, or clear 24-hour time like 14:30.`);
+          return;
+        }
+
+        const departureTime = formatItineraryTime(stop.departureTime);
+        if (stop.departureTime && !departureTime) {
+          Alert.alert('Invalid Departure Time', `Fix the departure time for itinerary day ${index + 1}. Use AM/PM, like 12:00 PM, or clear 24-hour time like 14:30.`);
+          return;
+        }
+
+        cleanItinerary.push({
+          ...stop,
+          date: formattedDate,
+          portName: stopName,
+          location: stop.location || undefined,
+          arrivalTime,
+          departureTime,
+          notes: stop.notes || undefined,
+        });
+      }
+    }
 
     const tripData: TripData = {
       name,
@@ -312,6 +447,8 @@ export function TripForm({ initialValues, onSubmit, onCancel, isLoading: externa
     if (budget) {
       tripData.budget = parseFloat(budget);
     }
+
+    setIsSubmittingInternal(true);
 
     try {
       await onSubmit(tripData, coverImageLocalUri && coverImageLocalUri !== initialValues?.coverImageUrl ? coverImageLocalUri : undefined);
@@ -362,7 +499,7 @@ export function TripForm({ initialValues, onSubmit, onCancel, isLoading: externa
             value={inputValue}
             onChangeText={(text) => {
               setInputValue(text);
-              const parsedDate = parseUSDateInput(text);
+              const parsedDate = parseUSDateInput(text, value.getFullYear());
               if (parsedDate) {
                 const nextDate = minimumDate && parsedDate < minimumDate ? minimumDate : parsedDate;
                 onChange({}, nextDate);
@@ -372,11 +509,16 @@ export function TripForm({ initialValues, onSubmit, onCancel, isLoading: externa
               }
             }}
             onBlur={() => {
-              if (!parseUSDateInput(inputValue)) {
+              const parsedDate = parseUSDateInput(inputValue, value.getFullYear());
+              if (parsedDate) {
+                const nextDate = minimumDate && parsedDate < minimumDate ? minimumDate : parsedDate;
+                setInputValue(formatToUSDate(nextDate));
+                onChange({}, nextDate);
+              } else {
                 setInputValue(formatToUSDate(value));
               }
             }}
-            placeholder="MM-DD-YYYY"
+            placeholder="7/5 or 07-05-2026"
             keyboardType="numbers-and-punctuation"
             editable={!isLoading}
           />
@@ -540,7 +682,9 @@ export function TripForm({ initialValues, onSubmit, onCancel, isLoading: externa
                       style={styles.input}
                       value={stop.date}
                       onChangeText={(value) => updateItineraryStop(stop.id, { date: value })}
-                      placeholder="MM-DD-YYYY"
+                      onBlur={() => normalizeItineraryDate(stop.id, stop.date)}
+                      placeholder="Date (7/5, 7-5, 7/5/26)"
+                      keyboardType="numbers-and-punctuation"
                       editable={!isLoading}
                     />
                     <TextInput
@@ -555,14 +699,18 @@ export function TripForm({ initialValues, onSubmit, onCancel, isLoading: externa
                         style={[styles.input, styles.timeInput]}
                         value={stop.arrivalTime || ''}
                         onChangeText={(value) => updateItineraryStop(stop.id, { arrivalTime: value })}
-                        placeholder="Arrive"
+                        onBlur={() => normalizeItineraryTime(stop.id, 'arrivalTime', stop.arrivalTime)}
+                        placeholder="Arrive, 12:00 PM"
+                        keyboardType="numbers-and-punctuation"
                         editable={!isLoading}
                       />
                       <TextInput
                         style={[styles.input, styles.timeInput]}
                         value={stop.departureTime || ''}
                         onChangeText={(value) => updateItineraryStop(stop.id, { departureTime: value })}
-                        placeholder="Depart"
+                        onBlur={() => normalizeItineraryTime(stop.id, 'departureTime', stop.departureTime)}
+                        placeholder="Depart, 2:30 PM"
+                        keyboardType="numbers-and-punctuation"
                         editable={!isLoading}
                       />
                     </View>
