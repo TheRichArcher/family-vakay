@@ -281,7 +281,8 @@ export function TripForm({ initialValues, onSubmit, onCancel, isLoading: externa
 
     setIsSubmittingInternal(true);
 
-    const participants = Array.from(new Set([...selectedParticipants, user.uid]));
+    const ownerId = initialValues?.ownerId || user.uid;
+    const participants = Array.from(new Set([...selectedParticipants, ownerId]));
     const cleanItinerary = itinerary
       .filter(stop => stop.date && stop.portName)
       .map(stop => ({
@@ -302,7 +303,7 @@ export function TripForm({ initialValues, onSubmit, onCancel, isLoading: externa
       endDate: formatToYYYYMMDD(endDate),
       status,
       participants,
-      ownerId: user.uid,
+      ownerId,
       coverImageUrl: coverImageLocalUri,
       tripType,
       itinerary: tripType === 'multiLocation' ? cleanItinerary : [],

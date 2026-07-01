@@ -10,6 +10,37 @@ from datetime import datetime, date
 from typing import List
 from ..services.user_service import UserService
 
+def _normalize_trip_storage_data(trip_data: dict) -> dict:
+    """Normalize legacy Firestore trip fields into the client-facing schema."""
+    normalized = dict(trip_data)
+    aliases = {
+        'start_date': 'startDate',
+        'end_date': 'endDate',
+        'owner_id': 'ownerId',
+        'family_id': 'familyId',
+        'cover_image_url': 'coverImageUrl',
+        'cover_image_thumbnail_url': 'coverImageThumbnailUrl',
+        'cover_image_resized_url': 'coverImageResizedUrl',
+        'updated_at': 'updatedAt',
+        'created_at': 'createdAt',
+        'trip_type': 'tripType',
+        'vacation_code': 'vacationCode',
+    }
+    for old_key, new_key in aliases.items():
+        if old_key in normalized and new_key not in normalized:
+            normalized[new_key] = normalized.pop(old_key)
+    return normalized
+
+def _normalize_trip_write_dates(trip_data: dict) -> dict:
+    normalized = dict(trip_data)
+    for key in ('startDate', 'endDate'):
+        value = normalized.get(key)
+        if isinstance(value, datetime):
+            normalized[key] = value.date().strftime('%Y-%m-%d')
+        elif isinstance(value, date):
+            normalized[key] = value.strftime('%Y-%m-%d')
+    return normalized
+
 def _get_trip_status(start_date: date, end_date: date, current_status: schemas.TripStatus) -> schemas.TripStatus:
     """Helper function to determine trip status based on dates."""
     if current_status == schemas.TripStatus.CANCELLED:
@@ -35,18 +66,7 @@ class TripsService:
         if not trip_doc.exists:
             raise ValueError("Trip not found")
 
-        trip_data = trip_doc.to_dict()
-
-        # --- Start data migration for robustness ---
-        if 'start_date' in trip_data and 'startDate' not in trip_data:
-            trip_data['startDate'] = trip_data.pop('start_date')
-        if 'end_date' in trip_data and 'endDate' not in trip_data:
-            trip_data['endDate'] = trip_data.pop('end_date')
-        if 'owner_id' in trip_data and 'ownerId' not in trip_data:
-            trip_data['ownerId'] = trip_data.pop('owner_id')
-        if 'cover_image_url' in trip_data and 'coverImageUrl' not in trip_data:
-            trip_data['coverImageUrl'] = trip_data.pop('cover_image_url')
-        # --- End data migration ---
+        trip_data = _normalize_trip_storage_data(trip_doc.to_dict())
 
         # Check for both camelCase and snake_case owner fields for backward compatibility
         is_owner = user_id == trip_data.get('ownerId')
@@ -89,19 +109,8 @@ class TripsService:
                 if doc.id in processed_trip_ids:
                     continue
 
-                trip_data = doc.to_dict()
+                trip_data = _normalize_trip_storage_data(doc.to_dict())
                 trip_data['id'] = doc.id
-
-                # --- Start data migration for robustness ---
-                if 'start_date' in trip_data and 'startDate' not in trip_data:
-                    trip_data['startDate'] = trip_data.pop('start_date')
-                if 'end_date' in trip_data and 'endDate' not in trip_data:
-                    trip_data['endDate'] = trip_data.pop('end_date')
-                if 'owner_id' in trip_data and 'ownerId' not in trip_data:
-                    trip_data['ownerId'] = trip_data.pop('owner_id')
-                if 'cover_image_url' in trip_data and 'coverImageUrl' not in trip_data:
-                    trip_data['coverImageUrl'] = trip_data.pop('cover_image_url')
-                # --- End data migration ---
                 # Normalize/compute status based on dates so lists always reflect reality
                 try:
                     current_status_str = trip_data.get('status', 'upcoming')
@@ -144,19 +153,8 @@ class TripsService:
             if doc.id in processed_trip_ids:
                 continue
 
-            trip_data = doc.to_dict()
+            trip_data = _normalize_trip_storage_data(doc.to_dict())
             trip_data['id'] = doc.id
-
-            # --- Start data migration for robustness ---
-            if 'start_date' in trip_data and 'startDate' not in trip_data:
-                trip_data['startDate'] = trip_data.pop('start_date')
-            if 'end_date' in trip_data and 'endDate' not in trip_data:
-                trip_data['endDate'] = trip_data.pop('end_date')
-            if 'owner_id' in trip_data and 'ownerId' not in trip_data:
-                trip_data['ownerId'] = trip_data.pop('owner_id')
-            if 'cover_image_url' in trip_data and 'coverImageUrl' not in trip_data:
-                trip_data['coverImageUrl'] = trip_data.pop('cover_image_url')
-            # --- End data migration ---
 
             try:
                 # Use .model_validate to handle potential validation errors gracefully
@@ -176,7 +174,7 @@ class TripsService:
         query = self.trips_collection.where(filter=FieldFilter('participants', 'array_contains', user_id))
         trips = []
         async for doc in query.stream():
-            trip_data = doc.to_dict()
+            trip_data = _normalize_trip_storage_data(doc.to_dict())
             trip_data['id'] = doc.id
             try:
                 # The raw data from Firestore might not have a status, default to upcoming
@@ -213,17 +211,8 @@ class TripsService:
                 if doc.id in processed_trip_ids:
                     continue
 
-                trip_data = doc.to_dict()
+                trip_data = _normalize_trip_storage_data(doc.to_dict())
                 trip_data['id'] = doc.id
-
-                if 'start_date' in trip_data and 'startDate' not in trip_data:
-                    trip_data['startDate'] = trip_data.pop('start_date')
-                if 'end_date' in trip_data and 'endDate' not in trip_data:
-                    trip_data['endDate'] = trip_data.pop('end_date')
-                if 'owner_id' in trip_data and 'ownerId' not in trip_data:
-                    trip_data['ownerId'] = trip_data.pop('owner_id')
-                if 'cover_image_url' in trip_data and 'coverImageUrl' not in trip_data:
-                    trip_data['coverImageUrl'] = trip_data.pop('cover_image_url')
 
                 try:
                     validated_trip = schemas.Trip.model_validate(trip_data)
@@ -241,19 +230,8 @@ class TripsService:
         """Lookup a trip by its public vacation code. Returns 404-style error if not found."""
         query = self.trips_collection.where(filter=FieldFilter('vacationCode', '==', code)).limit(1)
         async for doc in query.stream():
-            trip_data = doc.to_dict()
+            trip_data = _normalize_trip_storage_data(doc.to_dict())
             trip_data['id'] = doc.id
-
-            # --- Start data migration for robustness ---
-            if 'start_date' in trip_data and 'startDate' not in trip_data:
-                trip_data['startDate'] = trip_data.pop('start_date')
-            if 'end_date' in trip_data and 'endDate' not in trip_data:
-                trip_data['endDate'] = trip_data.pop('end_date')
-            if 'owner_id' in trip_data and 'ownerId' not in trip_data:
-                trip_data['ownerId'] = trip_data.pop('owner_id')
-            if 'cover_image_url' in trip_data and 'coverImageUrl' not in trip_data:
-                trip_data['coverImageUrl'] = trip_data.pop('cover_image_url')
-            # --- End data migration ---
 
             try:
                 return schemas.Trip.model_validate(trip_data)
@@ -359,7 +337,7 @@ class TripsService:
         if not trip_doc.exists:
             raise ValueError("Trip not found")
 
-        trip_data = trip_doc.to_dict()
+        trip_data = _normalize_trip_storage_data(trip_doc.to_dict())
         trip_data['id'] = trip_id
         trip_to_update = schemas.Trip.model_validate(trip_data)
 
@@ -371,7 +349,8 @@ class TripsService:
             raise PermissionError("Only the trip owner or an admin can update this trip.")
 
         update_data = trip_update.model_dump(by_alias=True, exclude_unset=True)
-        update_data['updated_at'] = datetime.utcnow()
+        update_data = _normalize_trip_write_dates(update_data)
+        update_data['updatedAt'] = datetime.utcnow()
 
         if 'participants' in update_data:
             current_participants = set(trip_to_update.participants)
@@ -398,7 +377,7 @@ class TripsService:
         await self.trips_collection.document(trip_id).update(update_data)
 
         updated_trip_doc = await self.trips_collection.document(trip_id).get()
-        updated_trip_data = updated_trip_doc.to_dict()
+        updated_trip_data = _normalize_trip_storage_data(updated_trip_doc.to_dict())
         updated_trip_data['id'] = updated_trip_doc.id
         return schemas.Trip.model_validate(updated_trip_data)
 

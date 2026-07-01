@@ -3,7 +3,7 @@ import asyncio
 from types import SimpleNamespace
 
 from app.services.trips_service import TripsService, _get_trip_status
-from app.schemas import TripCreate, TripStatus
+from app.schemas import TripCreate, TripStatus, TripUpdate
 
 
 def test_get_trip_status_completed():
@@ -169,3 +169,68 @@ def test_create_trip_rejects_kid_accounts():
         assert "Kid accounts cannot create trips" in str(error)
     else:
         raise AssertionError("Expected kid account trip creation to be rejected")
+
+
+def test_update_trip_writes_camel_case_firestore_fields(monkeypatch):
+    update_payload = {}
+    stored_trip = {
+        "name": "Old Trip",
+        "description": "Original",
+        "startDate": "2026-07-01",
+        "endDate": "2026-07-05",
+        "location": "Cape Cod",
+        "status": "upcoming",
+        "participants": ["member-1"],
+        "ownerId": "member-1",
+    }
+
+    class FakeSnapshot:
+        exists = True
+        id = "trip-1"
+
+        def to_dict(self):
+            return {**stored_trip, **update_payload}
+
+    class FakeDocumentRef:
+        async def get(self):
+            return FakeSnapshot()
+
+        async def update(self, data):
+            update_payload.update(data)
+
+    class FakeTripsCollection:
+        def document(self, trip_id):
+            assert trip_id == "trip-1"
+            return FakeDocumentRef()
+
+    class FakeDB:
+        def collection(self, name):
+            assert name == "trips"
+            return FakeTripsCollection()
+
+    class FakeUserService:
+        async def update_user_profile(self, user_id, data):
+            raise AssertionError("No participant profile updates expected")
+
+    monkeypatch.setattr("app.services.trips_service.get_async_firestore_client", lambda: FakeDB())
+    monkeypatch.setattr("app.services.trips_service.UserService", lambda: FakeUserService())
+
+    trip = asyncio.run(
+        TripsService().update_trip(
+            "trip-1",
+            TripUpdate(
+                name="Updated Trip",
+                startDate="2026-08-01",
+                endDate="2026-08-06",
+            ),
+            {"uid": "member-1", "role": "member"},
+        )
+    )
+
+    assert trip.name == "Updated Trip"
+    assert update_payload["startDate"] == "2026-08-01"
+    assert update_payload["endDate"] == "2026-08-06"
+    assert "updatedAt" in update_payload
+    assert "start_date" not in update_payload
+    assert "end_date" not in update_payload
+    assert "updated_at" not in update_payload

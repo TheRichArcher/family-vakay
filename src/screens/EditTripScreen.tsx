@@ -25,7 +25,7 @@ export default function EditTripScreen() {
       Alert.alert('Error', 'You must be logged in to edit a trip.');
       return;
     }
-    if (user.uid !== trip.ownerId) {
+    if (user.uid !== trip.ownerId && user.role !== 'admin') {
       Alert.alert('Permission Denied', 'You can only edit your own trips.');
       return;
     }
