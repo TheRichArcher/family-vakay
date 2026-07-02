@@ -10,6 +10,7 @@ import { colors } from '../theme/colors';
 import ScreenHeader from '../components/ScreenHeader';
 import { typography } from '../theme/typography';
 import { BudgetStatus } from '../components/BudgetStatus';
+import { userService, AdminStats } from '../services/userService';
 
 type AdminDashboardNavigationProp = CompositeNavigationProp<
   NativeStackNavigationProp<AdminStackParamList, 'AdminDashboard'>,
@@ -20,14 +21,19 @@ const AdminDashboardScreen = () => {
   const { user } = useAuth();
   const navigation = useNavigation<AdminDashboardNavigationProp>();
   const [tripsWithBudgets, setTripsWithBudgets] = useState<TripWithBudget[]>([]);
+  const [adminStats, setAdminStats] = useState<AdminStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const loadTripBudgets = async () => {
     if (!user) return;
     setIsLoading(true);
     try {
-      const tripsWithSpent = await tripsService.getTripsWithBudgetSummary();
+      const [tripsWithSpent, stats] = await Promise.all([
+        tripsService.getTripsWithBudgetSummary(),
+        userService.getAdminStats(),
+      ]);
       setTripsWithBudgets(tripsWithSpent);
+      setAdminStats(stats);
     } catch (error) {
       console.error("Failed to load trip budgets:", error);
       Alert.alert("Error", "Could not load trip budget information.");
@@ -46,6 +52,26 @@ const AdminDashboardScreen = () => {
   return (
     <ScrollView style={styles.container}>
       <ScreenHeader title="Admin Dashboard" subtitle={`Welcome, ${user?.displayName || 'Admin'}!`} background="band" />
+
+      {!isLoading && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Setup Checklist</Text>
+          <View style={styles.checklist}>
+            <TouchableOpacity style={styles.checkItem} onPress={() => navigation.navigate('AdminFamily')}>
+              <Ionicons name={adminStats && adminStats.family_members > 1 ? 'checkmark-circle' : 'ellipse-outline'} size={22} color={colors.primary} />
+              <Text style={styles.checkText}>Invite another adult or add kid profiles</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.checkItem} onPress={() => navigation.navigate('CreateTrip')}>
+              <Ionicons name={tripsWithBudgets.length > 0 ? 'checkmark-circle' : 'ellipse-outline'} size={22} color={colors.primary} />
+              <Text style={styles.checkText}>Create the first trip</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.checkItem} onPress={() => navigation.navigate('RewardsStore')}>
+              <Ionicons name="ellipse-outline" size={22} color={colors.primary} />
+              <Text style={styles.checkText}>Add rewards kids can spend points on</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
       
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Trip Budgets Overview</Text>
@@ -117,6 +143,28 @@ const styles = StyleSheet.create({
     ...typography.h3,
     color: colors.text,
     marginBottom: 15,
+  },
+  checklist: {
+    backgroundColor: colors.white,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: 'hidden',
+  },
+  checkItem: {
+    minHeight: 52,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  checkText: {
+    ...typography.body,
+    color: colors.text,
+    flex: 1,
   },
   tripBudgetCard: {
     backgroundColor: 'white',

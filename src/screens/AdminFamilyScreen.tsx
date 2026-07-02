@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Clipboard } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
-import { userService, UserProfile } from '../services/userService';
+import { userService, UserProfile, FamilyInvite } from '../services/userService';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { AccessibleModal } from '../components/AccessibleModal';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
+import { env } from '../config/env';
 
 export default function AdminFamilyScreen() {
   const { user } = useAuth();
@@ -15,6 +16,10 @@ export default function AdminFamilyScreen() {
   const [newMemberName, setNewMemberName] = useState('');
   const [newMemberPin, setNewMemberPin] = useState('');
   const [newMemberAge, setNewMemberAge] = useState('');
+  const [invites, setInvites] = useState<FamilyInvite[]>([]);
+  const [inviteName, setInviteName] = useState('');
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [isCreatingInvite, setIsCreatingInvite] = useState(false);
   const [addMemberErrors, setAddMemberErrors] = useState<{ name?: string, pin?: string, age?: string }>({});
   const [isAddingMember, setIsAddingMember] = useState(false);
   const [memberToDelete, setMemberToDelete] = useState<UserProfile | null>(null);
@@ -49,10 +54,15 @@ export default function AdminFamilyScreen() {
       setCurrentUserProfile(profile);
 
       if (profile?.familyId) {
-        const members = await userService.getFamilyMembers(profile.familyId);
+        const [members, familyInvites] = await Promise.all([
+          userService.getFamilyMembers(profile.familyId),
+          userService.getFamilyInvites(),
+        ]);
         setFamilyMembers(members);
+        setInvites(familyInvites);
       } else {
         setFamilyMembers([]);
+        setInvites([]);
       }
     } catch (error) {
       console.error('Error fetching family data:', error);
@@ -98,6 +108,48 @@ export default function AdminFamilyScreen() {
       console.error("Error adding member profile:", error);
     } finally {
       setIsAddingMember(false);
+    }
+  };
+
+  const buildInviteLink = (code: string) => {
+    const baseUrl = env.QR_BASE_URL || env.DEEPLINK_BASE_URL || '';
+    return baseUrl ? `${baseUrl}/register?inviteCode=${code}` : code;
+  };
+
+  const copyInvite = (invite: FamilyInvite) => {
+    Clipboard.setString(buildInviteLink(invite.code));
+    showNotification("Invite copied.", 'success');
+  };
+
+  const handleCreateInvite = async () => {
+    setIsCreatingInvite(true);
+    try {
+      const invite = await userService.createFamilyInvite({
+        recipientName: inviteName.trim() || undefined,
+        recipientEmail: inviteEmail.trim() || undefined,
+        role: 'member',
+      });
+      setInvites(prev => [invite, ...prev]);
+      setInviteName('');
+      setInviteEmail('');
+      Clipboard.setString(buildInviteLink(invite.code));
+      showNotification("Invite created and copied.", 'success');
+    } catch (error) {
+      console.error("Error creating invite:", error);
+      showNotification("Could not create invite.", 'error');
+    } finally {
+      setIsCreatingInvite(false);
+    }
+  };
+
+  const handleRevokeInvite = async (invite: FamilyInvite) => {
+    try {
+      const updatedInvite = await userService.revokeFamilyInvite(invite.id);
+      setInvites(prev => prev.map(item => item.id === invite.id ? updatedInvite : item));
+      showNotification("Invite revoked.", 'success');
+    } catch (error) {
+      console.error("Error revoking invite:", error);
+      showNotification("Could not revoke invite.", 'error');
     }
   };
 
@@ -180,7 +232,55 @@ export default function AdminFamilyScreen() {
       
       <ScrollView contentContainerStyle={styles.contentContainer}>
         <View>
-            <Text style={styles.subtitle}>Add a New Family Member</Text>
+            <Text style={styles.subtitle}>Invite Adults</Text>
+            <View style={styles.addKidForm}>
+                <TextInput
+                style={styles.input}
+                placeholder="Name (optional)"
+                value={inviteName}
+                onChangeText={setInviteName}
+                placeholderTextColor={colors.textSecondary}
+                />
+                <TextInput
+                style={styles.input}
+                placeholder="Email (optional)"
+                value={inviteEmail}
+                onChangeText={setInviteEmail}
+                autoCapitalize="none"
+                keyboardType="email-address"
+                placeholderTextColor={colors.textSecondary}
+                />
+                <TouchableOpacity style={styles.button} onPress={handleCreateInvite} disabled={isCreatingInvite}>
+                <Text style={styles.buttonText}>{isCreatingInvite ? 'Creating...' : 'Create Invite Link'}</Text>
+                </TouchableOpacity>
+            </View>
+            <View style={styles.inviteList}>
+              {invites.map(invite => (
+                <View key={invite.id} style={styles.inviteCard}>
+                  <View style={styles.memberInfo}>
+                    <Text style={styles.memberName}>{invite.recipientName || invite.recipientEmail || 'Family invite'}</Text>
+                    <Text style={styles.memberRole}>{invite.code} - {invite.status}</Text>
+                  </View>
+                  <View style={styles.memberActions}>
+                    <TouchableOpacity style={styles.editButton} onPress={() => copyInvite(invite)}>
+                      <Text style={styles.actionButtonText}>Copy</Text>
+                    </TouchableOpacity>
+                    {invite.status === 'pending' && (
+                      <TouchableOpacity style={styles.deleteButton} onPress={() => handleRevokeInvite(invite)}>
+                        <Text style={styles.actionButtonText}>Revoke</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                </View>
+              ))}
+              {invites.length === 0 && (
+                <Text style={styles.noMembersText}>Adult invite links will show here.</Text>
+              )}
+            </View>
+        </View>
+
+        <View>
+            <Text style={styles.subtitle}>Add Kid Profile</Text>
             <View style={styles.addKidForm}>
                 <TextInput
                 style={styles.input}
@@ -212,7 +312,7 @@ export default function AdminFamilyScreen() {
                 />
                 {addMemberErrors.pin && <Text style={styles.errorText}>{addMemberErrors.pin}</Text>}
                 <TouchableOpacity style={styles.button} onPress={handleAddMember} disabled={isAddingMember}>
-                <Text style={styles.buttonText}>{isAddingMember ? 'Adding...' : 'Add Member'}</Text>
+                <Text style={styles.buttonText}>{isAddingMember ? 'Adding...' : 'Add Kid Profile'}</Text>
                 </TouchableOpacity>
             </View>
         </View>
@@ -368,6 +468,22 @@ const styles = StyleSheet.create({
       fontWeight: 'bold',
     },
     memberCard: { 
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: spacing.m,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 8,
+      marginBottom: spacing.s,
+      backgroundColor: colors.white,
+    },
+    inviteList: {
+      paddingHorizontal: 20,
+      marginTop: spacing.s,
+      marginBottom: spacing.m,
+    },
+    inviteCard: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',

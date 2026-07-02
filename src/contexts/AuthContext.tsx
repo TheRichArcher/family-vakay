@@ -26,7 +26,7 @@ interface AuthContextType {
   user: AppUser | null;
   error: AuthError | null;
   signInWithEmail: (email: string, password: string) => Promise<void>;
-  registerWithEmail: (email: string, password: string, name: string, familyId?: string, role?: 'admin' | 'member' | 'kid') => Promise<void>;
+  registerWithEmail: (email: string, password: string, name: string, familyId?: string, role?: 'admin' | 'member' | 'kid', inviteCode?: string) => Promise<void>;
   signOut: () => Promise<void>;
   loginKid: (token: string) => Promise<void>;
   forgotPassword: (email: string) => Promise<void>;
@@ -111,7 +111,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const registerWithEmail = async (email: string, password: string, name: string, familyId?: string, role?: 'admin' | 'member' | 'kid') => {
+  const registerWithEmail = async (
+    email: string,
+    password: string,
+    name: string,
+    familyId?: string,
+    role?: 'admin' | 'member' | 'kid',
+    inviteCode?: string
+  ) => {
     setIsLoading(true);
     setError(null);
     try {
@@ -131,7 +138,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         role: role,
       };
 
-      const profile = await userService.createUserProfile(authUser.uid, profileDetails, familyId);
+      const profile = await userService.createUserProfile(authUser.uid, profileDetails, familyId, inviteCode);
       const userWithProfile = { ...authUser, ...profile };
       setUser(userWithProfile as AppUser);
 

@@ -14,6 +14,7 @@ import { useRoute, RouteProp } from '@react-navigation/native';
 import { AuthStackParamList } from '../navigation/AppNavigator';
 import { colors } from '../theme/colors';
 import { Picker } from '@react-native-picker/picker';
+import { userService, FamilyInviteResolve } from '../services/userService';
 
 type RegisterScreenRouteProp = RouteProp<AuthStackParamList, 'Register'>;
 
@@ -24,16 +25,50 @@ export default function RegisterScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [name, setName] = useState('');
   const [familyId, setFamilyId] = useState('');
+  const [inviteCode, setInviteCode] = useState('');
+  const [inviteDetails, setInviteDetails] = useState<FamilyInviteResolve | null>(null);
+  const [joinedByCode, setJoinedByCode] = useState(false);
+  const [isResolvingInvite, setIsResolvingInvite] = useState(false);
   const [role, setRole] = useState<'admin' | 'member' | 'kid'>('member');
   const [error, setError] = useState<string | null>(null);
   const route = useRoute<RegisterScreenRouteProp>();
 
   useEffect(() => {
-    // If a familyId is passed from the join link/flow, pre-fill it.
-    if (route.params?.familyCode) {
-      setFamilyId(route.params.familyCode);
+    const routeInviteCode = route.params?.inviteCode?.replace(/\s/g, '').toUpperCase();
+    if (routeInviteCode) {
+      setInviteCode(routeInviteCode);
+      setIsResolvingInvite(true);
+      userService.resolveFamilyInvite(routeInviteCode)
+        .then(invite => {
+          setInviteDetails(invite);
+          setFamilyId(invite.familyId);
+          setRole(invite.role === 'kid' ? 'member' : invite.role);
+          if (invite.recipientName) {
+            setName(invite.recipientName);
+          }
+        })
+        .catch(() => {
+          setError("This invite is expired or invalid. Ask your admin for a fresh one.");
+        })
+        .finally(() => setIsResolvingInvite(false));
+      return;
     }
-  }, [route.params?.familyCode]);
+
+    if (route.params?.familyCode) {
+      const shareCode = route.params.familyCode.replace(/\s/g, '').toUpperCase();
+      setIsResolvingInvite(true);
+      userService.getFamilyIdByShareCode(shareCode)
+        .then(({ familyId }) => {
+          setFamilyId(familyId);
+          setJoinedByCode(true);
+          setRole('member');
+        })
+        .catch(() => {
+          setError("This family code is invalid. Ask your admin for a fresh one.");
+        })
+        .finally(() => setIsResolvingInvite(false));
+    }
+  }, [route.params?.familyCode, route.params?.inviteCode]);
 
   useEffect(() => {
     if (authError) {
@@ -54,7 +89,7 @@ export default function RegisterScreen() {
     }
 
     try {
-      await registerWithEmail(email, password, name, familyId, familyId ? role : undefined);
+      await registerWithEmail(email, password, name, familyId, familyId ? role : undefined, inviteCode || undefined);
       // AppNavigator will handle the switch to the main app stack.
     } catch (err: any) {
       setError(getErrorMessage(err));
@@ -65,8 +100,17 @@ export default function RegisterScreen() {
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>Create Your Account</Text>
       <Text style={styles.subtitle}>
-        Join your family or start a new one.
+        {inviteDetails ? 'Accept your family invite and finish setup.' : 'Join your family or start a new one.'}
       </Text>
+
+      {inviteDetails && (
+        <View style={styles.inviteBanner}>
+          <Text style={styles.inviteTitle}>Family invite ready</Text>
+          <Text style={styles.inviteText}>Role: {inviteDetails.role}</Text>
+        </View>
+      )}
+
+      {isResolvingInvite && <ActivityIndicator color={colors.primary} style={{ marginBottom: 15 }} />}
       
       <TextInput
         style={styles.input}
@@ -106,16 +150,23 @@ export default function RegisterScreen() {
         editable={!isLoading}
       />
 
-      <TextInput
-        style={styles.input}
-        placeholder="Family Code (optional)"
-        value={familyId}
-        onChangeText={setFamilyId}
-        autoCapitalize="characters"
-        editable={!isLoading}
-      />
+      {joinedByCode ? (
+        <View style={styles.inviteBanner}>
+          <Text style={styles.inviteTitle}>Joining an existing family</Text>
+          <Text style={styles.inviteText}>You will be added as a member.</Text>
+        </View>
+      ) : (
+        <TextInput
+          style={styles.input}
+          placeholder="Family Code (optional)"
+          value={familyId}
+          onChangeText={setFamilyId}
+          autoCapitalize="characters"
+          editable={!isLoading && !inviteDetails}
+        />
+      )}
 
-      {familyId ? (
+      {familyId && !inviteDetails && !joinedByCode ? (
         <View style={styles.pickerContainer}>
           <Picker
             selectedValue={role}
@@ -216,4 +267,23 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 10,
   },
-}); 
+  inviteBanner: {
+    backgroundColor: colors.white,
+    borderColor: colors.primary,
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 14,
+    marginBottom: 15,
+  },
+  inviteTitle: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  inviteText: {
+    color: colors.textSecondary,
+    fontSize: 14,
+    textTransform: 'capitalize',
+  },
+});

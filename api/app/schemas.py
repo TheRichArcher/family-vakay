@@ -13,6 +13,11 @@ class UserRole(str, Enum):
     MEMBER = "member"
     KID = "kid"
 
+class FamilyInviteStatus(str, Enum):
+    PENDING = "pending"
+    ACCEPTED = "accepted"
+    REVOKED = "revoked"
+
 class TripStatus(str, Enum):
     PLANNING = "planning"
     UPCOMING = "upcoming"
@@ -145,6 +150,7 @@ class UserProfileUpdate(BaseModel):
     name: Optional[str] = None
     role: Optional[UserRole] = None
     family_id: Optional[str] = Field(None, alias='familyId')
+    invite_code: Optional[str] = Field(None, alias='inviteCode')
     is_kid: Optional[bool] = Field(None, alias='isKid')
     trip_ids: Optional[List[str]] = Field(None, alias='tripIds')
 
@@ -325,6 +331,34 @@ class FamilyMemberUpdate(BaseModel):
 class FamilyId(BaseModel):
     model_config = ConfigDict(model_dump_by_alias=True)
     family_id: str = Field(..., alias="familyId")
+
+class FamilyInviteCreate(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    recipient_name: Optional[str] = Field(None, alias="recipientName")
+    recipient_email: Optional[EmailStr] = Field(None, alias="recipientEmail")
+    role: UserRole = UserRole.MEMBER
+
+class FamilyInviteResolve(BaseModel):
+    model_config = ConfigDict(populate_by_name=True, use_enum_values=True, model_dump_by_alias=True)
+
+    code: str
+    family_id: str = Field(..., alias="familyId")
+    role: UserRole = UserRole.MEMBER
+    recipient_name: Optional[str] = Field(None, alias="recipientName")
+    recipient_email: Optional[EmailStr] = Field(None, alias="recipientEmail")
+    status: FamilyInviteStatus = FamilyInviteStatus.PENDING
+
+class FamilyInvite(FamilyInviteResolve):
+    model_config = ConfigDict(populate_by_name=True, use_enum_values=True, model_dump_by_alias=True)
+
+    id: str
+    created_by: str = Field(..., alias="createdBy")
+    accepted_by: Optional[str] = Field(None, alias="acceptedBy")
+    revoked_by: Optional[str] = Field(None, alias="revokedBy")
+    created_at: Optional[datetime] = Field(None, alias="createdAt")
+    accepted_at: Optional[datetime] = Field(None, alias="acceptedAt")
+    revoked_at: Optional[datetime] = Field(None, alias="revokedAt")
     
 # Rewards Schemas
 class RewardBase(BaseModel):

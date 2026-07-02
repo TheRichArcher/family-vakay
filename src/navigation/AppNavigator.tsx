@@ -40,7 +40,7 @@ import * as Linking from 'expo-linking';
 // Define Param Lists
 export type AuthStackParamList = {
   Login: undefined;
-  Register: { familyCode?: string };
+  Register: { familyCode?: string; inviteCode?: string };
   FamilyCode: undefined;
   KidPin: { familyId?: string, familyCode?: string };
   QRScanner: undefined;

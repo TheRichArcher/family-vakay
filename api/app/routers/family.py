@@ -143,6 +143,73 @@ async def get_family_by_share_code(share_code: str):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invalid share code.")
     return schemas.FamilyId(familyId=family_id)
 
+@router.post("/invites", response_model=schemas.FamilyInvite, status_code=status.HTTP_201_CREATED)
+async def create_family_invite(invite: schemas.FamilyInviteCreate, current_user: dict = Depends(get_current_user)):
+    if current_user.get('role') != schemas.UserRole.ADMIN:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only admins can create family invites.")
+
+    family_id = current_user.get('family_id') or current_user.get('familyId') or current_user.get('profile', {}).get('familyId')
+    if not family_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Admin user does not have a family ID.")
+
+    user_service = UserService()
+    try:
+        created_invite = await user_service.create_family_invite(
+            family_id=family_id,
+            created_by=current_user["uid"],
+            role=invite.role,
+            recipient_name=invite.recipient_name,
+            recipient_email=str(invite.recipient_email) if invite.recipient_email else None,
+        )
+    except ValueError as error:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error))
+
+    return schemas.FamilyInvite(**created_invite)
+
+@router.get("/invites", response_model=List[schemas.FamilyInvite], response_model_exclude_none=True)
+async def list_family_invites(current_user: dict = Depends(get_current_user)):
+    if current_user.get('role') != schemas.UserRole.ADMIN:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only admins can view family invites.")
+
+    family_id = current_user.get('family_id') or current_user.get('familyId') or current_user.get('profile', {}).get('familyId')
+    if not family_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Admin user does not have a family ID.")
+
+    user_service = UserService()
+    invites = await user_service.list_family_invites(family_id)
+    return [schemas.FamilyInvite(**invite) for invite in invites]
+
+@router.get("/invites/by-code/{invite_code}", response_model=schemas.FamilyInviteResolve)
+async def resolve_family_invite(invite_code: str):
+    user_service = UserService()
+    invite = await user_service.get_family_invite_by_code(invite_code)
+    if not invite:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invalid invite code.")
+    if invite.get("status") != schemas.FamilyInviteStatus.PENDING.value:
+        raise HTTPException(status_code=status.HTTP_410_GONE, detail="This invite is no longer active.")
+    return schemas.FamilyInviteResolve(**invite)
+
+@router.post("/invites/{invite_id}/revoke", response_model=schemas.FamilyInvite)
+async def revoke_family_invite(invite_id: str, current_user: dict = Depends(get_current_user)):
+    if current_user.get('role') != schemas.UserRole.ADMIN:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only admins can revoke family invites.")
+
+    family_id = current_user.get('family_id') or current_user.get('familyId') or current_user.get('profile', {}).get('familyId')
+    if not family_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Admin user does not have a family ID.")
+
+    user_service = UserService()
+    try:
+        invite = await user_service.revoke_family_invite(invite_id, family_id, current_user["uid"])
+    except PermissionError:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to revoke this invite.")
+    except ValueError as error:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error))
+
+    if not invite:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invite not found.")
+    return schemas.FamilyInvite(**invite)
+
 @router.get("/{family_id}/members", response_model=List[schemas.MemberUserProfile], response_model_exclude_none=True)
 async def get_family_members(family_id: str, current_user: dict = Depends(get_current_user)):
     # Security check: Ensure current user is part of the family they are requesting.

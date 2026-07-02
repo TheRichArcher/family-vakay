@@ -105,13 +105,23 @@ async def create_or_update_user_profile(user_id: str, profile: schemas.UserProfi
     user_ref = db.collection('users').document(user_id)
 
     profile_data = profile.model_dump(exclude_unset=True, by_alias=False)
+    invite_code = profile_data.pop('invite_code', None)
 
     existing_doc = await user_ref.get()
     is_new_user = not existing_doc.exists
 
     # Logic for setting family_id and role for new users
     if is_new_user:
-        if 'family_id' not in profile_data or not profile_data['family_id']:
+        if invite_code:
+            user_service = UserService()
+            invite = await user_service.get_family_invite_by_code(invite_code)
+            if not invite:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invite not found.")
+            if invite.get("status") != schemas.FamilyInviteStatus.PENDING.value:
+                raise HTTPException(status_code=status.HTTP_410_GONE, detail="This invite is no longer active.")
+            profile_data['family_id'] = invite.get('family_id') or invite.get('familyId')
+            profile_data['role'] = invite.get('role') or schemas.UserRole.MEMBER
+        elif 'family_id' not in profile_data or not profile_data['family_id']:
             # New user creating their own family -> they are the admin.
             profile_data['family_id'] = user_id
             profile_data['role'] = schemas.UserRole.ADMIN
@@ -130,6 +140,13 @@ async def create_or_update_user_profile(user_id: str, profile: schemas.UserProfi
         profile_data['created_at'] = firestore.SERVER_TIMESTAMP
 
     await user_ref.set(profile_data, merge=True)
+
+    if is_new_user and invite_code:
+        user_service = UserService()
+        try:
+            await user_service.mark_invite_accepted(invite_code, user_id)
+        except ValueError as error:
+            logger.warning(f"Invite {invite_code} could not be marked accepted after profile creation: {error}")
 
     updated_doc = await user_ref.get()
     updated_profile = updated_doc.to_dict()

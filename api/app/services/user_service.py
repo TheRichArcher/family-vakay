@@ -3,6 +3,7 @@ from .. import schemas
 from google.cloud import firestore
 import string
 import random
+import secrets
 from firebase_admin import auth as firebase_auth
 import logging
 import asyncio
@@ -15,6 +16,7 @@ class UserService:
     def __init__(self):
         self.db = get_async_firestore_client()
         self.users_collection = self.db.collection('users')
+        self.invites_collection = self.db.collection('family_invites')
 
     async def get_user_profile(self, user_id: str) -> dict | None:
         user_doc = await self.users_collection.document(user_id).get()
@@ -97,6 +99,22 @@ class UserService:
             if is_unique:
                 return code
 
+    async def _generate_invite_code(self) -> str:
+        """Generates an 8-character, easy-to-read, unique invite code."""
+        chars = string.ascii_uppercase + string.digits
+        chars = chars.replace('0', '').replace('O', '').replace('1', '').replace('I', '')
+
+        while True:
+            code = ''.join(secrets.choice(chars) for _ in range(8))
+            query = self.invites_collection.where(filter=FieldFilter('code', '==', code)).limit(1)
+            docs = query.stream()
+            is_unique = True
+            async for _ in docs:
+                is_unique = False
+                break
+            if is_unique:
+                return code
+
     async def get_or_create_share_code(self, user_id: str) -> str:
         """
         Retrieves the existing share code for a user's family by finding the family admin.
@@ -144,6 +162,127 @@ class UserService:
 
         admin_profile = docs[0].to_dict()
         return admin_profile.get('family_id') or admin_profile.get('familyId') or docs[0].id
+
+    async def create_family_invite(
+        self,
+        *,
+        family_id: str,
+        created_by: str,
+        role: schemas.UserRole,
+        recipient_name: str | None = None,
+        recipient_email: str | None = None,
+    ) -> dict:
+        if role == schemas.UserRole.ADMIN:
+            raise ValueError("Invites cannot grant admin access.")
+        if role == schemas.UserRole.KID:
+            raise ValueError("Kid profiles should be created by an admin with a PIN.")
+
+        code = await self._generate_invite_code()
+        invite_data = {
+            "code": code,
+            "family_id": family_id,
+            "familyId": family_id,
+            "role": role.value if hasattr(role, "value") else role,
+            "recipient_name": recipient_name,
+            "recipientName": recipient_name,
+            "recipient_email": recipient_email,
+            "recipientEmail": recipient_email,
+            "status": schemas.FamilyInviteStatus.PENDING.value,
+            "created_by": created_by,
+            "createdBy": created_by,
+            "created_at": firestore.SERVER_TIMESTAMP,
+            "createdAt": firestore.SERVER_TIMESTAMP,
+        }
+        _, invite_ref = await self.invites_collection.add(invite_data)
+        invite_doc = await invite_ref.get()
+        invite = invite_doc.to_dict()
+        invite["id"] = invite_doc.id
+        return invite
+
+    async def list_family_invites(self, family_id: str) -> list[dict]:
+        query = self.invites_collection.where(filter=FieldFilter('family_id', '==', family_id))
+        invites = []
+        async for doc in query.stream():
+            invite = doc.to_dict()
+            invite["id"] = doc.id
+            if "familyId" not in invite:
+                invite["familyId"] = invite.get("family_id")
+            if "createdBy" not in invite:
+                invite["createdBy"] = invite.get("created_by")
+            if "recipientName" not in invite:
+                invite["recipientName"] = invite.get("recipient_name")
+            if "recipientEmail" not in invite:
+                invite["recipientEmail"] = invite.get("recipient_email")
+            if "createdAt" not in invite:
+                invite["createdAt"] = invite.get("created_at")
+            if "acceptedAt" not in invite:
+                invite["acceptedAt"] = invite.get("accepted_at")
+            if "revokedAt" not in invite:
+                invite["revokedAt"] = invite.get("revoked_at")
+            if "acceptedBy" not in invite:
+                invite["acceptedBy"] = invite.get("accepted_by")
+            if "revokedBy" not in invite:
+                invite["revokedBy"] = invite.get("revoked_by")
+            invites.append(invite)
+
+        return sorted(invites, key=lambda item: str(item.get("created_at") or item.get("createdAt") or ""), reverse=True)
+
+    async def get_family_invite_by_code(self, code: str) -> dict | None:
+        normalized_code = code.replace(" ", "").upper()
+        query = self.invites_collection.where(filter=FieldFilter('code', '==', normalized_code)).limit(1)
+        docs = [doc async for doc in query.stream()]
+        if not docs:
+            return None
+        invite = docs[0].to_dict()
+        invite["id"] = docs[0].id
+        invite["familyId"] = invite.get("familyId") or invite.get("family_id")
+        invite["recipientName"] = invite.get("recipientName") or invite.get("recipient_name")
+        invite["recipientEmail"] = invite.get("recipientEmail") or invite.get("recipient_email")
+        invite["createdBy"] = invite.get("createdBy") or invite.get("created_by")
+        return invite
+
+    async def revoke_family_invite(self, invite_id: str, family_id: str, revoked_by: str) -> dict | None:
+        invite_ref = self.invites_collection.document(invite_id)
+        invite_doc = await invite_ref.get()
+        if not invite_doc.exists:
+            return None
+        invite = invite_doc.to_dict()
+        invite_family_id = invite.get("family_id") or invite.get("familyId")
+        if invite_family_id != family_id:
+            raise PermissionError("Invite belongs to another family.")
+        if invite.get("status") == schemas.FamilyInviteStatus.ACCEPTED.value:
+            raise ValueError("Accepted invites cannot be revoked.")
+
+        await invite_ref.update({
+            "status": schemas.FamilyInviteStatus.REVOKED.value,
+            "revoked_by": revoked_by,
+            "revokedBy": revoked_by,
+            "revoked_at": firestore.SERVER_TIMESTAMP,
+            "revokedAt": firestore.SERVER_TIMESTAMP,
+        })
+        updated_doc = await invite_ref.get()
+        updated = updated_doc.to_dict()
+        updated["id"] = updated_doc.id
+        updated["familyId"] = updated.get("familyId") or updated.get("family_id")
+        updated["createdBy"] = updated.get("createdBy") or updated.get("created_by")
+        return updated
+
+    async def mark_invite_accepted(self, invite_code: str, accepted_by: str) -> dict | None:
+        invite = await self.get_family_invite_by_code(invite_code)
+        if not invite:
+            return None
+        if invite.get("status") != schemas.FamilyInviteStatus.PENDING.value:
+            raise ValueError("Invite is not pending.")
+
+        invite_ref = self.invites_collection.document(invite["id"])
+        await invite_ref.update({
+            "status": schemas.FamilyInviteStatus.ACCEPTED.value,
+            "accepted_by": accepted_by,
+            "acceptedBy": accepted_by,
+            "accepted_at": firestore.SERVER_TIMESTAMP,
+            "acceptedAt": firestore.SERVER_TIMESTAMP,
+        })
+        return invite
 
     async def get_user_by_email(self, email: str) -> dict | None:
         """
