@@ -1,6 +1,7 @@
 import os
 import logging
 import uuid
+import asyncio
 from typing import Optional
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request
@@ -18,7 +19,8 @@ from app.routers import (
     family,
     rewards
 )
-from app.firebase_admin import initialize_firebase_admin
+from app.firebase_admin import initialize_firebase_admin, get_firestore_client
+import firebase_admin
 import sentry_sdk
 from sentry_sdk.integrations.fastapi import FastApiIntegration
 from sentry_sdk.integrations.logging import LoggingIntegration
@@ -81,6 +83,27 @@ async def health_check():
 @app.get("/health", include_in_schema=False)
 async def health_check_explicit():
     return {"status": "ok"}
+
+@app.get("/ready", include_in_schema=False)
+async def readiness_check():
+    checks = {
+        "firebaseAdmin": bool(firebase_admin._apps),
+        "firestore": False,
+    }
+
+    if checks["firebaseAdmin"]:
+        try:
+            db = get_firestore_client()
+            await asyncio.to_thread(lambda: next(db.collection("users").limit(1).stream(), None))
+            checks["firestore"] = True
+        except Exception:
+            logging.exception("readiness_firestore_check_failed")
+
+    ready = all(checks.values())
+    return {
+        "status": "ok" if ready else "degraded",
+        "checks": checks,
+    }
 
 @app.get("/version", include_in_schema=False)
 async def version_check():

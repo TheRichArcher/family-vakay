@@ -178,6 +178,47 @@ Verification
 - FE: provoke an API 500 or throw an error. Confirm event appears in Sentry with breadcrumbs.
 - BE: call a protected route without a token (401) or hit the family validate endpoint repeatedly to trigger rate limit. Confirm log lines have `request_id` and Sentry event exists when DSN is set.
 
+## Production Smoke Tests
+
+Run the public production smoke test after deploys:
+
+```bash
+npm run smoke:prod
+```
+
+By default this checks:
+- backend `/health`, `/ready`, and `/version`
+- frontend HTML export availability
+- public invite-code rejection
+- protected API auth guardrails
+
+Set a smoke admin account to exercise the full product loop against production:
+
+```bash
+SMOKE_ADMIN_EMAIL="admin@example.com" \
+SMOKE_ADMIN_PASSWORD="..." \
+npm run smoke:prod
+```
+
+The authenticated smoke creates and cleans up temporary records for:
+- family invite creation/listing/public resolution
+- trip creation/listing
+- AI activity suggestions
+- activity creation, voting, booking, and trip activity listing
+- budget summary
+- reward creation/listing/update/redemptions/delete
+
+Optional invite-acceptance check:
+
+```bash
+SMOKE_MEMBER_EMAIL="fresh-member@example.com" \
+SMOKE_MEMBER_PASSWORD="..." \
+SMOKE_MEMBER_IS_UNREGISTERED=true \
+npm run smoke:prod
+```
+
+Use a disposable member account with no existing app profile for invite acceptance. Existing member profiles are intentionally skipped so the smoke test does not mutate a real user into another family.
+
 ## Environment Variables Reference
 
 | Scope | Variable | Description | Required | Example |
@@ -198,4 +239,4 @@ Verification
 
 Notes:
 - Changing domains only requires updating `EXPO_PUBLIC_API_URL` (frontend) and `CORS_ORIGINS` (backend). No code changes.
-- Health endpoints are exposed at `/` and `/health`. Ensure your platform health checks point to one of these.
+- Health endpoints are exposed at `/`, `/health`, and `/ready`. Use `/ready` for deeper Firebase/Firestore readiness checks.
